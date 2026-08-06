@@ -1,27 +1,27 @@
 {
-  "$comment": "THE MEASURED NUMBERS. Nothing in this file is estimated. A cell with no entry in `cells` renders as 'pending' \u2014 that is the correct state until a real run lands. See web/README.md for how to fill it in.",
+  "$comment": "THE MEASURED NUMBERS. Nothing in this file is estimated. A cell with no entry in `cells` renders as 'pending' — that is the correct state until a real run lands. See web/README.md for how to fill it in.",
   "schema_version": 1,
   "status": "pending",
   "generated": "2026-08-06",
-  "headline": "No standard benchmark has been run. The controlled A/B that used to sit above this table was retracted twice on 2026-08-06 — the winning version and the losing version both.",
+  "headline": "No standard benchmark has been run. The controlled A/B that used to sit above this table was retracted twice on 2026-08-06 — the winning version and the losing version both. A third retraction followed the same day: the first paired run of the two real binaries (Terminal-Bench Hard, n = 3) was withdrawn because the reference solution shipped inside the task archive into the agent's own working directory, and the scoring path would have run it as the agent's work. See section 04, faults 16–18.",
   "harness_commit": null,
   "plan_url": "https://github.com/chutesai/chutescode",
   "arms": [
     {
       "id": "A",
-      "label": "Arm A \u2014 raw API",
+      "label": "Arm A — raw API",
       "short": "raw API",
       "desc": "bench-runner calls the model directly, no agent loop. Exists only to reproduce the published numbers and prove our pipeline is calibrated."
     },
     {
       "id": "B",
-      "label": "Arm B \u2014 vanilla Codex",
+      "label": "Arm B — vanilla Codex",
       "short": "vanilla Codex",
       "desc": "upstream `codex exec`, pointed at Chutes. The conventional fixed-tool-schema harness baseline."
     },
     {
       "id": "C",
-      "label": "Arm C \u2014 chutescoder",
+      "label": "Arm C — chutescoder",
       "short": "chutescoder (RLM)",
       "desc": "our fork, RLM mode on. Same binary as arm B, one flag different."
     }
@@ -39,11 +39,11 @@
       "chutes_id": "zai-org/GLM-5.2-TEE",
       "context": 1048576,
       "blocked": true,
-      "blocked_reason": "Availability probing put zai-org/GLM-5.2-TEE far below both other models on the same probes (exact counts in the evidence line below, computed from the log rather than typed here). The successes it did record were one-token health checks; every multi-turn agent attempt returned `429 Infrastructure is at maximum capacity`. The cause looks structural rather than transient \u2014 the chute has 2 instances, one of them inactive, against Kimi K3's 7. Recorded as blocked: we did not quietly substitute another model.",
+      "blocked_reason": "Availability probing put zai-org/GLM-5.2-TEE far below both other models on the same probes (exact counts in the evidence line below, computed from the log rather than typed here). The successes it did record were one-token health checks; every multi-turn agent attempt returned `429 Infrastructure is at maximum capacity`. The cause looks structural rather than transient — the chute has 2 instances, one of them inactive, against Kimi K3's 7. Recorded as blocked: we did not quietly substitute another model.",
       "blocked_evidence": "data/model_availability.jsonl",
       "blocked_caveats": [
         "The probe window ends roughly 75 minutes before the runs it is being used to explain, so there is no availability evidence covering the period when work actually happened. Roughly a third of attempts succeeding is bad, not impossible.",
-        "zai-org/GLM-5.1-TEE was available on every single probe and was never tried. It is a different model from the one the plan asks for, so it is not a substitute \u2014 but running it would have been the cheapest way to turn 'one model' into 'two models', and that was not done."
+        "zai-org/GLM-5.1-TEE was available on every single probe and was never tried. It is a different model from the one the plan asks for, so it is not a substitute — but running it would have been the cheapest way to turn 'one model' into 'two models', and that was not done."
       ]
     }
   ],
@@ -82,7 +82,7 @@
         "B",
         "C"
       ],
-      "public_reference": "Neither lab publishes OOLONG. Prime Intellect published GLM-5.2 at 0.700 / 0.874 with their harness vs a 0.420 baseline \u2014 a direct analogue of our claim.",
+      "public_reference": "Neither lab publishes OOLONG. Prime Intellect published GLM-5.2 at 0.700 / 0.874 with their harness vs a 0.420 baseline — a direct analogue of our claim.",
       "subset": false
     },
     {

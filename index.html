@@ -41,7 +41,7 @@
 <!-- ─────────────────────────── STATUS BANNER ─────────────────────────── -->
 <div class="wrap">
   <aside class="banner banner-retract" role="status" id="status-banner">
-    <span class="banner-pill">Three rounds of review &middot; 2026-08-06</span>
+    <span class="banner-pill">Four rounds of review &middot; 2026-08-06</span>
     <p>
       <strong>The experiment supports no performance claim, in either direction.</strong> The first
       pass said the harness wins; that rested on files our own script left in <code>/tmp</code> and
@@ -49,6 +49,9 @@
       roughly half to <em>all</em> of that gap is system-prompt length rather than mechanism. And the
       one cell with a mechanism the baseline lacks <strong>never fired</strong> — the baseline's own
       summaries kept the target fact in 5 of 5 trials.
+      And on the first paired run of the two <em>real binaries</em>, the reference solution turned out
+      to be sitting in the agent's own working directory — with a scoring path that would have run it
+      as the agent's work.
       <a href="#ab">Section 04 carries the whole retraction</a>, with no performance numbers in it.
       Standard benchmarks have <a href="#results">never been run</a>; GLM-5.2 was not reachably
       available.
@@ -793,6 +796,117 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
     <p class="fineprint">
       Full reviews, both passes: <code>docs/REVIEW.md</code>. Current state of what is and is not
       measured: <code>docs/RESULTS.md</code> §3.6–3.8 and §6.
+    </p>
+  </div>
+
+  <h3 class="sub-h">Round four — the first product run, and the answer key that was already in the folder</h3>
+
+  <div class="retraction">
+    <div class="retraction-head">
+      <span class="pill pill-retract">Retracted 2026-08-06</span>
+      <span class="retraction-when">reported, then audited &middot; the audit won</span>
+    </div>
+    <h3>The first paired run of the two real binaries produced a number. It lasted about an hour.</h3>
+    <p>
+      Terminal-Bench Hard, n = 3, one seed, both arms sealed: <b>vanilla Codex 0.0, chutescoder
+      0.333</b>. It was reported before it was audited. It is void, for two independent reasons,
+      either of which is sufficient on its own.
+    </p>
+  </div>
+
+  <div class="fault-grid">
+
+    <article class="fault">
+      <div class="fault-num">Fault 16</div>
+      <h4>The reference solution was sitting in the agent's own working directory</h4>
+      <p>
+        Upstream Terminal-Bench task archives ship the reference solution and the held-out tests
+        <em>alongside</em> the task, and our extractor unpacked the <b>whole</b> archive into
+        <code>/workspace/task</code>. Verified in a live sandbox before the agent had done
+        anything:
+      </p>
+      <blockquote class="quote">
+        <code>/workspace/task/solution.sh</code> — 13,609 bytes, opening with the terminal-bench
+        canary string, containing a complete working implementation<br>
+        <code>/workspace/task/tests/test_outputs.py</code> — 3,858 bytes
+      </blockquote>
+      <p>
+        The prompt then told the agent: <em>“Write a solution script to
+        <code>/workspace/task/solution.sh</code>”</em> — the exact path the answer already occupied.
+        The day before, we had sealed the sandbox's network so the agent could not fetch the tests
+        from GitHub. That closed the route the agent had to <em>work</em> for. This is the one it
+        was <em>handed</em>.
+      </p>
+    </article>
+
+    <article class="fault">
+      <div class="fault-num">Fault 17</div>
+      <h4>An agent that did nothing would have been scored as if it had succeeded</h4>
+      <p>
+        The scoring path checked that <code>task/solution.sh</code> existed, then
+        <code>chmod +x</code>'d it, copied it into the task container and ran it. Since the archive
+        always provided that file, <b>the check could not fail for the right reason</b> — an agent
+        that never wrote anything had the <em>reference implementation</em> executed and scored as
+        its own work.
+      </p>
+      <p>
+        So the one passing item cannot be distinguished from “the reference solution ran”. Not
+        “probably contaminated” — <b>not distinguishable</b>. That is why the number is withdrawn
+        rather than caveated.
+      </p>
+    </article>
+
+    <article class="fault">
+      <div class="fault-num">Fault 18</div>
+      <h4>The sample was smaller than reported, and one arm may never have run</h4>
+      <p>
+        Five of the six items errored out with no captured output, so there was <b>one scoreable
+        observation in total</b>, not three. Those deaths turned out to be wall clock, not task
+        difficulty: measured over 95 requests, the model averages <b>~55 s per request with a
+        722 s maximum</b>, against a 600–900 s per-task budget — twelve to sixteen turns, for tasks
+        that need more. The budget is now an explicit variable, recorded per item and identical
+        across arms.
+      </p>
+      <p>
+        Separately, the baseline arm recorded <b>zero tokens across all three items</b>. That is not
+        “it scored 0.0”, it is “it may never have been invoked” — an open question, and a reminder
+        that a 0 is a measurement only once you have shown the thing ran.
+      </p>
+    </article>
+
+  </div>
+
+  <div class="retraction">
+    <h3>The audit was then extended to the benchmark we had <em>not</em> run yet.</h3>
+    <p>
+      The obvious next question was whether Terminal-Bench was the only harness that hands the agent
+      the answer. SWE-Bench Pro has the same bug class: its task images are built by cloning the
+      repository and checking out the base commit, and the whole <code>.git</code> directory goes
+      into the agent's workspace with it. Resetting to the base commit moves <code>HEAD</code>; it
+      does <b>not</b> remove refs pointing at commits <em>after</em> it. So
+      <code>git log --all</code>, the reflog, or a plain <code>git show</code> could surface the
+      upstream fix for the exact issue the agent was asked to solve — inside the repository it was
+      told to work in. Remotes made it worse: anything deleted could simply be re-fetched.
+    </p>
+    <p>
+      That is now stripped before the agent starts — every ref deleted, one branch recreated at the
+      base commit, remotes removed, reflog expired, objects pruned — and an item whose repository
+      cannot be confined is <b>failed rather than scored</b>. Verified on a purpose-built repository
+      rather than assumed: beforehand the planted fix commit was reachable and printed by
+      <code>git log --all</code>; afterwards <code>git cat-file</code> reports
+      <em>“Not a valid object name”</em>. Pruned, not merely unreferenced.
+    </p>
+    <p class="retraction-rule">
+      <strong>This has now happened five times in the same shape:</strong> believing a plausible
+      artefact instead of checking the layer beneath it. The rule that came out of it is the one
+      worth taking from this whole page — <b>no score is reported until the thing that produced it
+      has been opened up</b>. The corollary is uncomfortable and load-bearing: a benchmark harness
+      that has never been audited is not evidence, however well-known the benchmark is.
+    </p>
+    <p class="fineprint">
+      Detail and arithmetic: <code>docs/RESULTS.md</code> §3.9. Fixes:
+      <code>chutes-bench-runner</code> <code>c00e99c</code> (Terminal-Bench holdout) and
+      <code>c2401128</code> (SWE-Bench history confinement, and the recorded agent budget).
     </p>
   </div>
 </section>
