@@ -1,10 +1,26 @@
 #!/usr/bin/env python3
-"""Regenerate web/data/ab_harness.json and web/data/availability.json.
+"""Regenerate web/data/availability.json, and (opt-in) data/ab_harness.json.
 
-Reads the raw per-trial records the benchmark harness writes, computes the
-aggregates the site displays, and writes them out. Run it after any new A/B run:
+    cd web && python3 build_data.py              # availability only
+    cd web && python3 build_data.py --emit-ab    # also write the A/B data file
 
-    cd web && python3 build_data.py
+RETRACTION NOTICE (2026-08-06)
+------------------------------
+The first A/B pass was withdrawn. Two faults, both in docs/REVIEW.md:
+
+  1. bench/ab_harness.py did not clean up /tmp between runs, so the compaction
+     task ran with ~480 leftover same-named files from earlier tasks on disk.
+     The single failing trial the accuracy result rested on went looking in
+     them and said so in its own final message.
+  2. The arms were not comparable: RLM got a 5,438-byte prompt teaching
+     batching and filtering plus a post-compaction hint naming ctx.grep;
+     CLASSIC got 232 bytes and was not told compaction had happened.
+
+So `--emit-ab` is opt-in and the site does NOT render the file. Do not restore
+the renderer until the data comes from the clean re-run (n=5, isolated corpus
+root per trial, a CLASSIC prompt written with equal care, a symmetric
+post-compaction notice, and a de-contaminated audit task). A null result is an
+acceptable outcome and should be published as one.
 
 Nothing here invents a number. Every value is either read straight out of a
 report file or is the arithmetic mean of the per-trial values in one.
@@ -44,23 +60,10 @@ TASKS = [
         "shape": "aggregation",
         "file": "ab_join_Kimi-K3-TEE.json",
     },
-    {
-        "id": "recall-5",
-        "label": "recall-5",
-        "blurb": "5 facts, forced compaction, corpus deleted, one fact asked for afterwards",
-        "shape": "post-compaction recall",
-        "file": None,
-        "source_note": (
-            "Per-trial records were superseded on disk by the recall-40 rerun; "
-            "these aggregates are transcribed from docs/RESULTS.md §3."
-        ),
-        "aggregate": {
-            "RLM": {"correct": 3, "trials": 3, "turns": 6.3, "tool_calls": 4.3,
-                    "tokens_in": 18910, "wall_clock_s": 67},
-            "CLASSIC": {"correct": 3, "trials": 3, "turns": 9.0, "tool_calls": 10.3,
-                        "tokens_in": 11828, "wall_clock_s": 72},
-        },
-    },
+    # recall-5 is deliberately absent. Its per-trial records no longer exist on
+    # disk; the numbers survived only as hand-typed literals here, transcribed
+    # from console output, sitting in a table beside four machine-generated
+    # rows. Retracted. Re-run it (~4 minutes) or leave it out.
     {
         "id": "recall-40",
         "label": "recall-40",
@@ -100,6 +103,7 @@ def aggregate(rows, arm):
 
 
 def main():
+    emit_ab = "--emit-ab" in sys.argv
     tasks = []
     missing = []
     for t in TASKS:
@@ -171,15 +175,25 @@ def main():
             "RLM": "one tool, `python`, over the persistent IPython kernel, with the real rlm_mode.md prompt",
             "CLASSIC": "the same capabilities as four conventional tool schemas: list_dir, read_file, grep, shell. Same 8 KiB output cap.",
         },
-        "caveat": "n = 1–3 trials per cell. Directional, not publishable. This is NOT chutescoder vs. upstream Codex — it is a controlled measurement of the one variable the RLM design is about.",
+        "retracted": True,
+        "retracted_on": "2026-08-06",
+        "retracted_because": "Corpus contamination in /tmp invalidated the accuracy result, and the two arms differed in system prompt and post-compaction guidance as well as tool interface. See docs/REVIEW.md.",
+        "caveat": "RETRACTED. n = 1–3 trials per cell — no cell could have reached significance under any outcome. This was never chutescoder vs. upstream Codex either.",
         "metrics": METRICS,
         "tasks": tasks,
     }
 
-    (OUT / "ab_harness.json").write_text(json.dumps(ab, indent=2) + "\n")
     (OUT / "availability.json").write_text(json.dumps(availability, indent=2) + "\n")
-    print(f"wrote data/ab_harness.json ({len(tasks)} tasks) and data/availability.json "
-          f"({len(availability['models'])} models, {len(probes)} probes)")
+    print(f"wrote data/availability.json ({len(availability['models'])} models, "
+          f"{len(probes)} probes)")
+
+    if emit_ab:
+        (OUT / "ab_harness.json").write_text(json.dumps(ab, indent=2) + "\n")
+        print(f"wrote data/ab_harness.json ({len(tasks)} tasks) — NOTE: the site does not "
+              f"render this file. See the retraction notice at the top of this script.")
+    else:
+        print("skipped data/ab_harness.json (pass --emit-ab). The A/B is retracted; "
+              "see docs/REVIEW.md.")
 
 
 if __name__ == "__main__":

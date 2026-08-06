@@ -9,9 +9,8 @@ web/
   index.html                  the page (structure + prose)
   styles.css                  light + dark themes, one stylesheet
   app.js                      chart, tables, filters, theme toggle (no deps)
-  build_data.py               regenerates ab_harness.json + availability.json
+  build_data.py               regenerates availability.json (+ ab_harness.json, opt-in)
   data/
-    ab_harness.json       ←   GENERATED. The controlled RLM-vs-CLASSIC A/B.
     availability.json     ←   GENERATED. Per-model probe success rate.
     smoke_run.json        ←   the end-to-end Kimi K3 run (hand-transcribed)
     results.json          ←   the standard-benchmark grid. Still empty on purpose.
@@ -33,35 +32,72 @@ renders as `pending`. That is the intended state until real runs land.
 
 ---
 
-## Regenerating the measured A/B data
+## The A/B is retracted — read this before restoring it
 
-`data/ab_harness.json` and `data/availability.json` are **generated** — do not
-hand-edit them. After any new `bench/ab_harness.py` run:
+**2026-08-06.** The first A/B pass was withdrawn after a second-agent review
+(`docs/REVIEW.md`, verdict NOT YET) found two faults:
+
+1. `bench/ab_harness.py` never cleaned `/tmp` between runs, so the compaction
+   task ran with ~480 leftover same-named files from earlier tasks on disk. The
+   single failing trial that the whole accuracy result rested on went looking in
+   them and said so in its own final message.
+2. The arms were not comparable. RLM got a 5,438-byte prompt teaching batching
+   and filtering plus a post-compaction notice naming `ctx.grep`; CLASSIC got
+   232 bytes and was not told compaction had happened. "The only variable is the
+   tool interface" was false.
+
+Consequences for this folder:
+
+- **`data/ab_harness.json` is not shipped.** It is deleted, and `build_data.py`
+  only writes it under an explicit `--emit-ab` flag.
+- **`app.js` has no A/B renderer.** The removed code is described in a comment
+  where it used to live. Do not resurrect it — it drew the invalid comparison.
+- **Section 04 of the page is a retraction**, not a placeholder. It names both
+  faults, quotes the failing trial, and carries zero measurements.
+- `recall-5` was dropped from `build_data.py` entirely: its per-trial records no
+  longer exist and its numbers survived only as hand-typed literals in this
+  script.
+
+### Restoring it when the clean re-run lands
+
+The re-run must have: n = 5 per cell, an isolated corpus root per trial, a
+CLASSIC system prompt written with comparable care, a symmetric post-compaction
+notice (or an explicit statement that the notice is part of what is compared),
+and a de-contaminated `audit` task whose answer is in neither prompt.
+
+Then:
 
 ```bash
 cd web
-cp ../data/model_availability.jsonl data/    # if new probes landed
+cp ../data/model_availability.jsonl data/
+python3 build_data.py --emit-ab
+```
+
+…and write a **new** renderer. Keep the retraction visible above whatever
+replaces it — a reader who saw the withdrawn numbers is owed the correction more
+than a reader who did not is owed a clean page. **A null result is an acceptable
+outcome and must be published as one.**
+
+To add a task, append an entry to `TASKS` in `build_data.py` with its report
+filename, a `blurb` and a `shape`.
+
+## Regenerating the availability data
+
+```bash
+cd web
+cp ../data/model_availability.jsonl data/
 python3 build_data.py
 ```
 
-`build_data.py` reads `../reports/ab_*.json`, computes the arithmetic mean of the
-per-trial values per (task, arm), and writes the aggregates plus the raw trials.
-It invents nothing.
-
-To add a task, append an entry to `TASKS` in `build_data.py` with its report
-filename, a `blurb` and a `shape`. Tasks render in list order — the site keeps
-them ordered *from the task the harness loses to the one it wins hardest*, which
-is deliberate. Keep it that way.
-
-One task, `recall-5`, has `"file": None` and carries a hardcoded `aggregate`
-block: its per-trial records were overwritten on disk by the `recall-40` rerun,
-so the numbers are transcribed from `docs/RESULTS.md` §3 and the site labels them
-as aggregate-only. If those per-trial records ever come back, point `file` at
-them and delete the `aggregate` block.
+This one is safe and should be re-run whenever the probe log grows. The
+GLM-5.2 `blocked_reason` in `results.json` deliberately contains **no counts** —
+the numbers come from `availability.json` at render time, so they cannot go
+stale. Keep it that way.
 
 `data/smoke_run.json` is hand-transcribed from
 `reports/smoke_kimi_k3/RESULT.md` — there is no machine-readable source for it.
-Update it by hand if that run is repeated.
+Update it by hand if that run is repeated. The review checked this one and its
+figures reproduce; it is n = 1 and the page says so.
 
 ---
 
@@ -108,7 +144,7 @@ Do **not** silently substitute a different model; that is exactly the failure
 mode the benchmark plan is designed to avoid. To un-block, delete the flag —
 the cells fall back to `pending`.
 
-### 3. Flip the page out of "pending" mode
+### 3. Flip the page out of "not run" mode
 
 Once at least one cell is measured, the status pill switches from
 *measurements in progress* to *partial results* automatically. Also update, by

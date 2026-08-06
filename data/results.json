@@ -3,7 +3,7 @@
   "schema_version": 1,
   "status": "pending",
   "generated": "2026-08-06",
-  "headline": "No standard-benchmark number has been measured yet. What has been measured is a controlled harness A/B and one end-to-end run \u2014 both above, both Kimi K3 only.",
+  "headline": "No standard benchmark has been run. The controlled A/B that used to sit above this table was retracted on 2026-08-06.",
   "harness_commit": null,
   "plan_url": "https://github.com/chutesai/chutescode",
   "arms": [
@@ -39,8 +39,12 @@
       "chutes_id": "zai-org/GLM-5.2-TEE",
       "context": 1048576,
       "blocked": true,
-      "blocked_reason": "zai-org/GLM-5.2-TEE returned `429 Infrastructure is at maximum capacity` on essentially every attempt across the whole working session. The cause is structural, not transient: the chute has 2 instances, one of them inactive, against Kimi K3's 7. Availability probing recorded 6 successes in 21 attempts (28.6%) while Kimi K3 and GLM-5.1 were 21/21 and 21/21 on the same probes. Recorded as blocked \u2014 we did not quietly substitute another model.",
-      "blocked_evidence": "data/model_availability.jsonl"
+      "blocked_reason": "Availability probing put zai-org/GLM-5.2-TEE far below both other models on the same probes (exact counts in the evidence line below, computed from the log rather than typed here). The successes it did record were one-token health checks; every multi-turn agent attempt returned `429 Infrastructure is at maximum capacity`. The cause looks structural rather than transient \u2014 the chute has 2 instances, one of them inactive, against Kimi K3's 7. Recorded as blocked: we did not quietly substitute another model.",
+      "blocked_evidence": "data/model_availability.jsonl",
+      "blocked_caveats": [
+        "The probe window ends roughly 75 minutes before the runs it is being used to explain, so there is no availability evidence covering the period when work actually happened. Roughly one attempt in four succeeding is bad, not impossible.",
+        "zai-org/GLM-5.1-TEE was available on every single probe and was never tried. It is a different model from the one the plan asks for, so it is not a substitute \u2014 but running it would have been the cheapest way to turn 'one model' into 'two models', and that was not done."
+      ]
     }
   ],
   "benchmarks": [

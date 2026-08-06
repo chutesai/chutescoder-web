@@ -188,159 +188,14 @@
 
 
   /* =========================================================
-     1b. Controlled harness A/B — data/ab_harness.json
+     1b. The controlled harness A/B was RETRACTED on 2026-08-06.
+     data/ab_harness.json is intentionally NOT shipped and nothing here
+     renders it. The withdrawn figures live in docs/REVIEW.md §1 and the raw
+     per-trial records in reports/ — republishing them would undo the
+     retraction. When the clean re-run lands, regenerate the data file with
+     build_data.py and restore a renderer; do not resurrect this one, it drew
+     the invalid comparison.
      ========================================================= */
-  var AB = null, abMetric = "turns";
-
-  load("data/ab_harness.json").then(function (d) {
-    AB = d;
-    var arms = $("#ab-arms");
-    if (arms) {
-      arms.innerHTML =
-        '<div class="arm arm-rlm"><h4>RLM</h4><p>' + esc(d.arms.RLM) + "</p></div>" +
-        '<div class="arm arm-classic"><h4>CLASSIC</h4><p>' + esc(d.arms.CLASSIC) + "</p></div>";
-    }
-    var tabs = $("#ab-metrics");
-    tabs.innerHTML = d.metrics.map(function (m) {
-      return '<button type="button" role="tab" class="mtab' + (m.id === abMetric ? " on" : "") +
-        '" data-metric="' + esc(m.id) + '" aria-selected="' + (m.id === abMetric) + '">' +
-        esc(m.label) + "</button>";
-    }).join("");
-    tabs.addEventListener("click", function (e) {
-      var b = e.target.closest && e.target.closest(".mtab");
-      if (!b) return;
-      abMetric = b.getAttribute("data-metric");
-      $$(".mtab", tabs).forEach(function (x) {
-        var on = x === b;
-        x.classList.toggle("on", on);
-        x.setAttribute("aria-selected", on);
-      });
-      drawAB();
-    });
-    drawAB();
-    renderAbTable(d);
-  }).catch(function (e) { fail($("#ab-chart"), e, "ab_harness.json"); });
-
-  function fmtVal(v, metric) {
-    if (metric.fmt === "pct") return Math.round(v * 100) + "%";
-    if (metric.fmt === "0") return Math.round(v).toLocaleString("en-US");
-    var r = Math.round(v * 10) / 10;
-    return r % 1 === 0 ? String(r) : r.toFixed(1);
-  }
-
-  // Returns {text, good} describing RLM relative to CLASSIC on this metric.
-  function delta(rlm, cls, metric) {
-    if (metric.id === "accuracy") {
-      var pts = Math.round((rlm - cls) * 100);
-      if (pts === 0) return { text: "same accuracy", good: null };
-      return { text: "RLM " + (pts > 0 ? "+" : "") + pts + " pts", good: pts > 0 };
-    }
-    if (!cls) return { text: "", good: null };
-    var ratio = rlm / cls;
-    if (Math.abs(ratio - 1) < 0.005) return { text: "no difference", good: null };
-    if (ratio < 1) return { text: "RLM " + Math.round((1 - ratio) * 100) + "% fewer", good: true };
-    if (ratio >= 2) return { text: "RLM " + (Math.round(ratio * 10) / 10) + "× more", good: false };
-    return { text: "RLM " + Math.round((ratio - 1) * 100) + "% more", good: false };
-  }
-
-  function drawAB() {
-    if (!AB) return;
-    var metric = AB.metrics.filter(function (m) { return m.id === abMetric; })[0];
-    var host = $("#ab-chart");
-    var W = 920, LAB = 104, X0 = 112, X1 = 668, BLOCK = 96;
-    var max = 0;
-    AB.tasks.forEach(function (t) {
-      ["RLM", "CLASSIC"].forEach(function (a) {
-        var v = t.arms[a] && t.arms[a][metric.id];
-        if (v != null && v > max) max = v;
-      });
-    });
-    if (metric.id === "accuracy") max = 1;
-    if (!max) max = 1;
-    var sc = function (v) { return (v / max) * (X1 - X0); };
-
-    var H = 14 + AB.tasks.length * BLOCK + 10;
-    var out = ['<svg viewBox="0 0 ' + W + " " + H + '" role="img" style="width:100%;height:auto;display:block" ' +
-      'aria-label="Paired bars comparing the RLM and CLASSIC arms on ' + esc(metric.label) +
-      ' across five tasks.">'];
-
-    AB.tasks.forEach(function (t, i) {
-      var y = 14 + i * BLOCK;
-      var rlm = t.arms.RLM ? t.arms.RLM[metric.id] : null;
-      var cls = t.arms.CLASSIC ? t.arms.CLASSIC[metric.id] : null;
-
-      out.push('<text class="ab-task" x="0" y="' + (y + 12) + '">' + esc(t.label) +
-        '<tspan class="ab-shape"> · ' + esc(t.shape) + "</tspan></text>");
-      out.push('<text class="ab-blurb" x="0" y="' + (y + 29) + '">' + esc(t.blurb) + "</text>");
-
-      var d = delta(rlm, cls, metric);
-      if (d.text) {
-        out.push('<text class="ab-delta ' + (d.good === true ? "good" : d.good === false ? "bad" : "flat") +
-          '" text-anchor="end" x="' + W + '" y="' + (y + 12) + '">' + esc(d.text) + "</text>");
-      }
-
-      [["RLM", rlm, "ab-bar-rlm", y + 40], ["CLASSIC", cls, "ab-bar-classic", y + 62]].forEach(function (row) {
-        var name = row[0], v = row[1], cl = row[2], by = row[3];
-        out.push('<text class="ab-arm" x="' + LAB + '" y="' + (by + 12) + '" text-anchor="end">' + esc(name) + "</text>");
-        out.push('<rect class="ab-track" x="' + X0 + '" y="' + by + '" width="' + (X1 - X0) + '" height="16" rx="4"/>');
-        if (v != null) {
-          var w = Math.max(2, sc(v));
-          out.push('<rect class="' + cl + '" x="' + X0 + '" y="' + by + '" width="' + w.toFixed(1) + '" height="16" rx="4"/>');
-          out.push('<text class="ab-val" x="' + (X0 + w + 10).toFixed(1) + '" y="' + (by + 12.5) + '">' +
-            fmtVal(v, metric) + "</text>");
-        }
-      });
-    });
-
-    out.push("</svg>");
-    host.innerHTML = out.join("");
-
-    var foot = $("#ab-foot");
-    if (foot) {
-      foot.innerHTML =
-        "<p style='margin:0 0 10px'><b>Showing: " + esc(metric.label) + ".</b> " +
-        (metric.id === "accuracy"
-          ? "Higher is better. Both arms were correct on every trial of every task except recall-40, where one CLASSIC trial burned its whole 20-turn budget and finished wrong."
-          : "Lower is better. Bars share one scale across all five tasks, so the vertical comparison is real.") +
-        "</p><p class='fineprint' style='margin:0'>" + esc(AB.caveat) + " Model <code>" +
-        esc(AB.model) + "</code> via <code>" + esc(AB.endpoint) + "</code>, temperature " +
-        esc(AB.temperature) + ", harness <code>" + esc(AB.harness_script) + "</code>.</p>";
-    }
-  }
-
-  function renderAbTable(d) {
-    var t = $("#ab-table");
-    if (!t) return;
-    var head = "<thead><tr><th>Task</th><th>Arm</th><th class='num'>correct</th><th class='num'>turns</th>" +
-      "<th class='num'>tool calls</th><th class='num'>tokens in</th><th class='num'>wall s</th></tr></thead>";
-    var rows = [];
-    d.tasks.forEach(function (task) {
-      ["RLM", "CLASSIC"].forEach(function (arm, j) {
-        var a = task.arms[arm];
-        if (!a) return;
-        rows.push("<tr" + (j === 0 ? ' class="ab-rowtop"' : "") + ">" +
-          "<td>" + (j === 0 ? "<b>" + esc(task.label) + "</b>" : "") + "</td>" +
-          "<td><span class='pill " + (arm === "RLM" ? "pill-third" : "pill-self") + "'>" + esc(arm) + "</span></td>" +
-          "<td class='num'>" + esc(a.correct) + " / " + esc(a.trials) + "</td>" +
-          "<td class='num'>" + fmtVal(a.turns, { fmt: "1" }) + "</td>" +
-          "<td class='num'>" + fmtVal(a.tool_calls, { fmt: "1" }) + "</td>" +
-          "<td class='num'>" + fmtVal(a.tokens_in, { fmt: "0" }) + "</td>" +
-          "<td class='num'>" + fmtVal(a.wall_clock_s, { fmt: "0" }) + "</td>" +
-          "</tr>");
-      });
-    });
-    t.innerHTML = head + "<tbody>" + rows.join("") + "</tbody>";
-
-    var prov = $("#ab-provenance");
-    if (prov) {
-      prov.innerHTML = "Aggregates are arithmetic means over the per-trial records, computed by " +
-        "<code>web/build_data.py</code> into <code>data/ab_harness.json</code>. Raw records: " +
-        d.tasks.map(function (x) {
-          return "<code>" + esc(x.source_file) + "</code>" +
-            (x.per_trial ? "" : " <em>(" + esc(x.source_note || "aggregate only") + ")</em>");
-        }).join(", ") + ".";
-    }
-  }
 
   /* =========================================================
      1c. End-to-end smoke run — data/smoke_run.json
@@ -435,6 +290,9 @@
         return '<div class="blocked-note"><h4><span class="pill pill-risk">blocked</span> ' +
           esc(m.label) + " <span class='dim'>" + esc(m.chutes_id) + "</span></h4><p>" +
           md(m.blocked_reason) + "</p>" +
+          (m.blocked_caveats || []).map(function (c) {
+            return '<p class="blocked-caveat">' + md(c) + "</p>";
+          }).join("") +
           (m.blocked_evidence
             ? '<p class="fineprint">Evidence: <code>' + esc(m.blocked_evidence) +
               '</code> <span id="avail-line"></span></p>'

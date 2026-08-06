@@ -6,7 +6,7 @@
 <title>chutescoder — a coding harness that treats context as a variable</title>
 <meta name="description" content="chutescoder is a Chutes-owned fork of OpenAI Codex rebuilt around programmatic tool calling: one python tool, a persistent IPython kernel, and the conversation itself as a variable. Benchmarked against the harness it replaces.">
 <meta property="og:title" content="chutescoder — a coding harness that treats context as a variable">
-<meta property="og:description" content="Same model, same benchmark, 7.4 points of spread from the harness alone. So Chutes built one.">
+<meta property="og:description" content="Same model, same benchmark, three published scores 7.4 points apart. Part of that is harness. Part of it is measurement noise. Both are reasons to run your own evals.">
 <meta property="og:type" content="article">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⌘</text></svg>">
 <link rel="stylesheet" href="styles.css">
@@ -25,7 +25,7 @@
       <a href="#why">Why</a>
       <a href="#what">What it does</a>
       <a href="#how">How it's built</a>
-      <a href="#ab">Measured</a>
+      <a href="#ab">Retraction</a>
       <a href="#results">Benchmarks</a>
       <a href="#published">Scores</a>
     </nav>
@@ -39,16 +39,17 @@
 
 <!-- ─────────────────────────── STATUS BANNER ─────────────────────────── -->
 <div class="wrap">
-  <aside class="banner" role="status" id="status-banner">
-    <span class="banner-pill">Standard benchmarks pending</span>
+  <aside class="banner banner-retract" role="status" id="status-banner">
+    <span class="banner-pill">Results retracted &middot; 2026-08-06</span>
     <p>
-      <strong>We have measured data — but not the number you came for.</strong> A controlled harness
-      A/B and one end-to-end run are done, both Kimi K3 only, both
-      <a href="#ab">reported in full below</a> including where the harness <em>loses</em>. The
-      standard benchmarks (Terminal-Bench, SWE-Bench Pro, OOLONG, AA-LCR, S-NIAH) have
-      <a href="#results">not been run</a>, and GLM-5.2 could not be run at all. Every number here is
-      traceable to a file in <code>data/</code> or to a named source. Nothing is estimated,
-      projected or placeholder.
+      <strong>The measured comparison this page carried has been withdrawn.</strong> A second-agent
+      review found that the headline accuracy result was contaminated by files our own harness left
+      in <code>/tmp</code>, and that the baseline arm was given a materially weaker prompt — so
+      "the only variable is the tool interface" was not true.
+      <a href="#ab">The full retraction is section 04</a>, numbers removed rather than hedged, with a
+      clean re-run in progress. The standard benchmarks have
+      <a href="#results">never been run</a>, and GLM-5.2 could not be run at all. What remains
+      measured is <a href="#e2e">one end-to-end run</a>, n = 1, labelled as such.
     </p>
   </aside>
 </div>
@@ -65,8 +66,11 @@
     functions inside that kernel. Ten tool calls collapse into one cell; a 50k-row result stays
     addressable as <code>out[7]</code> instead of flooding the context window; and the transcript
     itself becomes <code>ctx</code>, greppable even for the turns compaction already threw away.
-    Turn the flag off and you have upstream Codex, byte for byte — which is what makes the
-    benchmark honest.
+    Turn the flag off and the agent loop is upstream Codex's, unchanged — which is what is meant to
+    make the benchmark honest. (Not <em>byte for byte</em>: the binary is renamed, the home directory
+    moved, and the config schema gained an <code>rlm</code> table. "Behaviourally identical in the
+    agent loop" is the defensible version, and it is verified by construction rather than by a
+    passing regression suite.)
   </p>
   <div class="hero-actions">
     <a class="btn btn-primary" href="https://github.com/chutesai/chutescode">The fork on GitHub</a>
@@ -76,7 +80,7 @@
     <div><dt>Tools visible to the model</dt><dd>1</dd></div>
     <div><dt>Kernel lifetime</dt><dd>whole session</dd></div>
     <div><dt>Survives compaction</dt><dd>yes</dd></div>
-    <div><dt>Binaries in the A/B</dt><dd>1</dd></div>
+    <div><dt>Standard benchmarks run</dt><dd>0</dd></div>
   </dl>
 </section>
 
@@ -101,11 +105,13 @@
 
   <div class="callout">
     <p>
-      <strong>7.4 points of spread from the harness alone.</strong> That is larger than the gap between
-      many adjacent model releases — and two of those three runs used the <em>same</em> harness
-      (Terminus 2) and still differ by 4.1 points. An agentic benchmark does not score a model. It
-      scores a <em>system</em>: model plus scaffold plus retries plus context management. Whoever
-      controls the scaffold controls several points of the result.
+      <strong>7.4 points of spread on one model, one benchmark.</strong> That is larger than the gap
+      between many adjacent model releases. But it is <em>not</em> 7.4 points of harness: two of the
+      three runs used the <em>same</em> harness — Terminus 2 — and still differ by 4.1 points, so
+      more than half the range is measurement variance at fixed model <em>and</em> fixed harness.
+      The honest reading is the weaker and more useful one: an agentic benchmark does not score a
+      model, it scores a <em>system</em> — model plus scaffold plus retries plus context management
+      plus whoever ran it — and none of the three numbers below is the model's score.
     </p>
     <p>
       The gap is systematic, not noise. Across both models we track, the lab's own harness beats the
@@ -142,8 +148,29 @@
   <p class="prose">
     Four ideas, all of them consequences of the same move: stop describing capabilities to the model
     as tool schemas, and start handing it a programming language with those capabilities already in
-    scope. Below is what the model actually sees.
+    scope. Below is what the model sees — <em>where it is built</em>.
   </p>
+
+  <div class="callout callout-warn">
+    <h4>What is actually implemented, as of 2026-08-06</h4>
+    <p>
+      Ideas <b>i</b> and <b>ii</b> ship: the single <code>python</code> tool, the persistent kernel,
+      the host-call bridge, <code>ctx</code>, <code>out[N]</code> and the per-variable snapshot are
+      wired into the turn loop and covered by tests.
+    </p>
+    <p>
+      Idea <b>iii</b> — sub-agent delegation, <code>rlm.map</code>, <code>rlm.spawn</code>,
+      <code>agent_message</code> — is <strong>not implemented</strong>. Nor are <code>llm()</code>,
+      MCP-from-Python or <code>/refine</code>. Each returns an explicit error rather than a
+      plausible-looking empty result, which is the right failure mode, but the code below is a
+      <em>design</em>, not a shipped API. Idea <b>iv</b> ships with one caveat: a harness edit
+      currently takes effect on the next <em>session</em>, not the next turn.
+    </p>
+    <p class="fineprint">
+      This disclosure used to live in a collapsed section further down the page. It belongs here,
+      next to the code it qualifies. Full gap list: <code>docs/CORE_WIRING.md</code>.
+    </p>
+  </div>
 
   <div class="idea-grid">
 
@@ -163,8 +190,10 @@ suspects = {p: s for p, s in srcs.items() if "eval(" in s or "exec(" in s}
 print(len(files), "files;", len(suspects), "suspects:", list(suspects))
 # 812 files; 3 suspects: ['src/plugins/loader.py', ...]</code></pre>
       <p class="idea-foot">
-        812 files were read. Three lines of output were spent. The other 809 files are still sitting
-        in <code>srcs</code>, addressable, costing nothing.
+        <span class="illus">illustrative — not a recorded run</span>
+        The shape of the point: whatever the file count, the reading happens in one turn and the
+        filtering happens before anything reaches the context window. What is left over stays bound
+        in <code>srcs</code>, addressable, costing nothing further.
       </p>
     </article>
 
@@ -184,20 +213,21 @@ ctx.slice(100, 140).text()
 ctx[42].content</code></pre>
       <p class="idea-foot">
         Compaction stops being amnesia and becomes an index. The same mechanism caps cell output: a
-        cell returning 12,000 rows shows the model
-        <code>&lt;list of 12043 dicts — full value kept in out[7]&gt;</code> and a head/tail excerpt.
-        The rows stay in the kernel.
+        cell returning a large result shows the model a one-line descriptor of the shape
+        <code>&lt;list of N dicts — full value kept in out[7]&gt;</code> plus a head/tail excerpt
+        <span class="illus">illustrative</span>. The rows stay in the kernel.
       </p>
     </article>
 
     <article class="idea">
       <div class="idea-num">iii</div>
-      <h3>Delegation is a function call</h3>
+      <h3>Delegation is a function call <span class="status-chip status-no">not implemented</span></h3>
       <p>
-        <code>await rlm(...)</code> spawns a sub-agent with its own model, its own kernel and its own
-        context window. It reads 200k tokens; the parent gets back a paragraph. When the work is
-        independent, fan out — the kernel runs cells under IPython's autoawait, so concurrent host
-        calls really are concurrent.
+        <em>Design, not shipped.</em> The intent: <code>await rlm(...)</code> spawns a sub-agent with
+        its own model, its own kernel and its own context window — it reads 200k tokens, the parent
+        gets back a paragraph — and fan-out works because the kernel runs cells under IPython's
+        autoawait. The Python side exists and is exercised against a mock host; <strong>the Rust host
+        does not implement any of it yet</strong>, and calling these today returns an explicit error.
       </p>
       <pre class="code" data-lang="python"><code>answer = await rlm("Read src/auth/** and explain how sessions are validated")
 
@@ -210,18 +240,21 @@ handles = [await rlm.spawn(f"Audit {m}") for m in modules]
 await agent_message.send("skip the vendored deps",
                          receiver_name=handles[0].session_name)</code></pre>
       <p class="idea-foot">
-        A sub-agent is the cheapest way to look at something large: you pay for the summary, not for
-        the reading.
+        The argument for it is that a sub-agent is the cheapest way to look at something large — you
+        pay for the summary, not for the reading. That argument is untested here, because none of
+        this runs yet.
       </p>
     </article>
 
     <article class="idea">
       <div class="idea-num">iv</div>
-      <h3>The harness edits itself</h3>
+      <h3>The harness edits itself <span class="status-chip status-partial">next session, not next turn</span></h3>
       <p>
         <code>rlm.harness</code> is the state that shapes the agent — prompt notes, sub-agent
-        definitions, skills, memories. The agent can change it mid-task; the change lands in the
-        system prompt on the <em>next</em> turn and persists across sessions. Write a memory the
+        definitions, skills, memories. The agent can write to it mid-task and the change persists
+        across sessions. The design calls for it to land in the system prompt on the <em>next
+        turn</em>; today the harness is resolved once per session, so it lands on the next
+        <em>session</em>. Write a memory the
         moment you learn something that cost you time. Write a skill once you have done the same
         multi-step thing twice.
       </p>
@@ -324,7 +357,7 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
           <text x="460" y="320" class="d-title">Codex ToolRegistry</text>
           <text x="460" y="344" class="d-sub">shell · read_file · write_file · apply_patch</text>
           <text x="460" y="364" class="d-sub">list_dir · grep · web_search · web_fetch</text>
-          <text x="460" y="384" class="d-sub">mcp_call · llm · rlm_spawn · harness_op</text>
+          <text x="460" y="384" class="d-sub">harness_op<tspan class="d-todo"> · mcp_call · llm · rlm_spawn (not yet)</tspan></text>
         </g>
         <path d="M 654 347 L 684 347" class="d-edge" marker-end="url(#ah)"/>
 
@@ -370,138 +403,177 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
       what came back and what didn't, rather than silently losing a variable it is still reasoning about.</p>
     </div>
     <div class="fact">
-      <h4>Tested before it was believed</h4>
-      <p>33 Python checks drive the real kernel against a mock host; 43 Rust tests cover the protocol,
-      kernel supervisor and continual harness, 12 of them against the live sidecar.</p>
+      <h4>Tested, with a caveat worth stating</h4>
+      <p>43 Rust tests cover the protocol, kernel supervisor and continual harness; 13 of them boot
+      the real Python sidecar. 35 Python checks drive the kernel against a <em>mock</em> host — and
+      several of those exercise <code>llm()</code>, <code>rlm.spawn</code> and
+      <code>agent_message</code>, which the real host does not implement. A green Python suite
+      therefore overstates what ships.</p>
     </div>
   </div>
 </section>
 
-<!-- ──────────────────────── A/B MECHANISM STUDY ─────────────────────── -->
+<!-- ──────────────────────── RETRACTION ──────────────────────────────── -->
 <section class="wrap section" id="ab">
-  <p class="kicker">04 — measured</p>
-  <h2>The controlled harness A/B</h2>
-  <p class="prose">
-    This is the only measured data on this page, and it is not the headline experiment. It is a
-    cheap, fully-controlled test of the <em>one variable</em> the RLM design is about, run while the
-    Rust build was still going. Identical model, task, corpus, turn budget, temperature and endpoint.
-    The only thing that changes is how the model reaches its tools.
-  </p>
+  <p class="kicker kicker-retract">04 — retracted</p>
+  <h2>The controlled harness A/B — <span class="strike-word">withdrawn</span></h2>
 
-  <div class="callout callout-warn" id="ab-disclaimer">
-    <h4>Read this before reading the numbers</h4>
+  <div class="retraction">
+    <div class="retraction-head">
+      <span class="pill pill-retract">Retracted 2026-08-06</span>
+      <span class="retraction-when">published earlier the same day &middot; live for about an hour</span>
+    </div>
+    <h3>Every number that was here has been taken down.</h3>
     <p>
-      <strong>This is not chutescoder versus upstream Codex.</strong> That comparison needs both real
-      binaries driven through Sandy on a standard benchmark, and it has not been run — see
-      <a href="#results">Benchmarks</a>, where every cell is still empty. What follows is a mechanism
-      study: <b>n = 1–3 trials per cell, one model, five synthetic tasks.</b> Directional, not
-      publishable. Anyone citing this work should say "controlled mechanism study, n small, one
-      model" — not "chutescoder beats Codex".
+      This section carried a five-task RLM-vs-CLASSIC comparison on Kimi K3, including the only
+      accuracy result the project had produced. A second-agent review
+      (<code>docs/REVIEW.md</code>, verdict <b>NOT YET</b>) found two faults in the experiment.
+      Both are real, both are ours, and together they invalidate the results — so the results are
+      gone rather than hedged.
+    </p>
+    <p class="retraction-rule">
+      <strong>No measurement from the first pass is reproduced anywhere on this page.</strong> The
+      withdrawn figures and the arithmetic behind the withdrawal are preserved in
+      <code>docs/REVIEW.md</code> §1 and the raw per-trial records in <code>reports/</code>. They are
+      deliberately not republished here, because a retracted number that stays in circulation is
+      barely a retraction.
     </p>
   </div>
 
-  <div class="arm-legend" id="ab-arms"></div>
+  <h3 class="sub-h">What was wrong</h3>
+  <div class="fault-grid">
 
-  <figure class="chart-card">
-    <figcaption class="chart-head">
-      <h3>RLM vs CLASSIC, Kimi K3</h3>
-      <p>Tasks are ordered from the one the harness loses to the one it wins hardest. Pick a metric;
-      the delta on the right says which arm did better and by how much.</p>
-    </figcaption>
-    <div class="metric-tabs" id="ab-metrics" role="tablist" aria-label="Metric"></div>
-    <div id="ab-chart" class="chart-body"><p class="loading">Loading A/B results…</p></div>
-    <div class="chart-foot" id="ab-foot"></div>
-  </figure>
-
-  <h3 class="sub-h">What it actually says</h3>
-  <div class="finding-grid">
-
-    <article class="finding finding-loss">
-      <div class="finding-tag">the harness loses</div>
-      <h4>1. On tasks a single <code>grep</code> answers, RLM is pure overhead</h4>
+    <article class="fault">
+      <div class="fault-num">Fault 1</div>
+      <h4>The headline accuracy result measured our own leftover files</h4>
       <p>
-        <code>needle</code> is the clearest case: CLASSIC solved it in <b>one tool call and 946 input
-        tokens</b>, against RLM's <b>6,246</b>. Almost all of the difference is the ~5 KB RLM prompt,
-        paid on every single request whether the task needs it or not. Reported first because it is
-        the honest shape of the result: <em>this harness is not free, and it does not pay for itself
-        on easy retrieval.</em>
+        <code>bench/ab_harness.py</code> built each corpus at
+        <code>/tmp/ab-{task}-{seed}-{arm}</code> and never cleaned up. By the time the compaction
+        task ran, <b>480 files from the earlier runs were still on disk</b> — using the
+        <em>same</em> <code>mod_NNN.py</code> filename scheme as the corpus that had just been
+        deleted, one <code>ls /tmp</code> away, with a <code>shell</code> tool that has unrestricted
+        filesystem access.
+      </p>
+      <p>The single failing trial that the entire accuracy result rested on said so itself:</p>
+      <blockquote class="quote">
+        “The current working directory is empty, but the task summary indicates the files were in
+        this directory. <b>Let me check the needle directories which have the same file pattern.</b>”
+      </blockquote>
+      <p>
+        That one trial drove the accuracy claim, the turn advantage, the tool-call advantage and the
+        bolded wall-clock figure. Drop it and the two clean trials are <b>identical on accuracy and
+        identical on turns</b>. There was no result. There was a directory we forgot to delete.
       </p>
     </article>
 
-    <article class="finding finding-win">
-      <div class="finding-tag">the harness wins</div>
-      <h4>2. Where intermediate results must be combined, it wins</h4>
+    <article class="fault">
+      <div class="fault-num">Fault 2</div>
+      <h4>“The only variable is the tool interface” was not true</h4>
       <p>
-        <code>join</code> needs 180 files parsed, dependency sets built and 16,110 pairs compared:
-        <b>2.5 turns vs 4.0</b> and <b>1.5 tool calls vs 3.0</b>. One cell does the parse, the join
-        and the argmax; the conventional arm needs a turn to orient, a turn to look and a turn to
-        compute.
+        That sentence was load-bearing — it is what made the comparison a comparison — and it does
+        not survive reading the harness script. At least three things varied:
+      </p>
+      <table class="mini-table">
+        <thead><tr><th></th><th>RLM arm</th><th>CLASSIC arm</th></tr></thead>
+        <tbody>
+          <tr><td>system prompt</td><td>5,438 bytes</td><td class="neg">232 bytes</td></tr>
+          <tr><td>strategy guidance</td><td>five numbered rules + a worked example</td><td class="neg">none</td></tr>
+          <tr><td>told compaction happened</td><td>yes</td><td class="neg">no</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Worse than the size gap: after compaction the RLM arm was handed a notice saying verbatim
+        <em>“use <code>ctx.grep(...)</code> instead of guessing at what you no longer see”</em> — a
+        hint at the winning move, delivered at the exact moment the winning move was needed. The
+        CLASSIC arm was not even told its history had been summarised away.
+      </p>
+      <p>
+        The asymmetry is faithful to the <em>product</em> — chutescoder really does inject that
+        notice and upstream Codex really does inject nothing. But that changes what was measured.
+        It measured a well-written prompt plus a kernel plus a timely hint against a three-sentence
+        prompt and four tools. It did not isolate programmatic tool calling, and the write-up said
+        it did.
       </p>
     </article>
 
-    <article class="finding finding-mixed">
-      <div class="finding-tag">it depends</div>
-      <h4>3. After compaction, the advantage tracks whether compaction was actually lossy</h4>
-      <p>
-        With <b>5 facts</b>, RLM used <b>30% fewer turns and 58% fewer tool calls</b> — but
-        <em>both arms scored 3/3</em>, because a competent summariser simply kept all five facts.
-        Efficiency, not accuracy. Reporting that as a capability win would have been overclaiming.
-      </p>
-      <p>
-        So it was rerun with <b>40 facts</b> — more than a concise summary can hold. Now an accuracy
-        gap appears: <b>RLM 3/3 vs CLASSIC 2/3</b>, alongside 27% fewer turns, 42% fewer tool calls
-        and <b>half the wall clock</b>. The failing CLASSIC trial burned all 20 turns and 49,875
-        tokens searching a filesystem that no longer held the answer, and finished wrong. The RLM arm
-        reached its own evicted history with <code>ctx.grep</code>.
-      </p>
-      <p class="fineprint">
-        One failure in three is a small sample. The honest reading is "consistent with the predicted
-        mechanism", not "a 33-point accuracy win".
-      </p>
+    <article class="fault">
+      <div class="fault-num">Also</div>
+      <h4>Two smaller problems, disclosed rather than buried</h4>
+      <ul class="tight-list">
+        <li>
+          <b>In-prompt task leakage.</b> The RLM system prompt's worked example greps for
+          <code>eval(</code> — which is literally the answer to the <code>audit</code> task. RLM
+          <em>lost</em> that task on every metric, so it flips nothing, but the cell was contaminated
+          and should have been labelled.
+        </li>
+        <li>
+          <b>One row was unverifiable.</b> The 5-fact compaction row had no per-trial record
+          anywhere on disk; its numbers existed only as hand-typed literals in the site's build
+          script, transcribed from console output. It sat in a table next to four
+          machine-generated rows with nothing distinguishing it. It is withdrawn along with the rest.
+        </li>
+        <li>
+          <b>No cell could have reached significance.</b> At the sample sizes used, there was no
+          assignment of outcomes — none — that would have produced a statistically significant
+          result. “Directional, not publishable” was true but far too gentle a way to say that.
+        </li>
+        <li>
+          <b>No transcripts were saved.</b> Only the first 300 characters of each final message were
+          kept, so several behavioural claims made in the write-up cannot be checked against the
+          artefacts at all. One of them turned out to be wrong when the reviewer went looking.
+        </li>
+      </ul>
     </article>
 
   </div>
 
   <div class="callout callout-uncomfortable">
-    <div class="finding-tag">the uncomfortable finding</div>
+    <div class="finding-tag">what survives — as an argument, not as evidence</div>
     <h4><code>shell</code> is already a programmatic escape hatch</h4>
     <p>
-      CLASSIC did not lose <code>join</code> by brute force. It won its way to the same answer by
-      writing a <code>python -c</code> one-liner through its <code>shell</code> tool. Every serious
-      coding agent has a shell, so <strong>"it can loop" is not the advantage</strong> — the baseline
-      can loop too. This narrows the claim considerably, and it should be narrowed. The marketing
-      version of programmatic tool calling oversells against baselines that already have a REPL one
-      <code>bash -lc</code> away.
+      This was the most useful thing in the withdrawn section and it is not a measurement, so it
+      stays — demoted from finding to hypothesis. Every serious coding agent already has a shell,
+      and a shell is a REPL one <code>bash -lc</code> away. <strong>“It can loop” is therefore not
+      the advantage</strong>, and any pitch for programmatic tool calling that leans on it is
+      overselling against a baseline that can loop too.
     </p>
-    <p>What the baseline genuinely cannot do, and what the measurements above are actually about:</p>
+    <p>What a conventional shell genuinely cannot do — the actual claim, still untested:</p>
     <ul class="tight-list">
-      <li><b>Keep state across turns.</b> Its shell is stateless — every invocation starts over. The RLM kernel still holds <code>deps</code> on the next turn.</li>
-      <li><b>Avoid re-paying for output.</b> A <code>shell</code> result lands in the context window in full. A cell's result can stay in the kernel as <code>out[N]</code> and be sliced later for free.</li>
-      <li><b>Reach into evicted history.</b> This is where the real claim lives, and it is the only thing <code>recall-40</code> tests.</li>
+      <li><b>Keep state across turns.</b> A shell is stateless; every invocation starts over.</li>
+      <li><b>Avoid re-paying for output.</b> A shell result lands in the context window in full.</li>
+      <li><b>Reach into evicted history.</b> And note what that really is: “the host keeps the full
+      transcript and exposes a grep.” A conventional harness given a <code>search_history()</code>
+      tool would plausibly match it with no REPL at all. That makes it an orthogonal,
+      separately-portable feature — not something intrinsic to programmatic tool calling.</li>
     </ul>
+    <p class="fineprint">
+      The observation that originally motivated this — a baseline arm solving an aggregation task by
+      writing a <code>python -c</code> one-liner through its shell — was never logged, and is not
+      verifiable from what we kept. It is stated here as a plausible reading of the token counts,
+      nothing more.
+    </p>
   </div>
 
-  <details class="details">
-    <summary>Every measured cell, and where the raw records live</summary>
-    <div class="details-body">
-      <div class="table-scroll" style="border:none;background:none;margin:0">
-        <table class="cells" id="ab-table"><tbody></tbody></table>
-      </div>
-      <p class="fineprint" id="ab-provenance"></p>
-    </div>
-  </details>
-
-  <details class="details">
-    <summary>What is still untested here</summary>
-    <div class="details-body">
-      <ul>
-        <li>Every task finishes in 2–20 turns, far short of a real context window. Compaction is <em>forced</em> synthetically rather than reached naturally.</li>
-        <li>One model. GLM-5.2 could not be run at all — see <a href="#results">the blocked cells below</a>.</li>
-        <li>Sub-agent delegation (<code>rlm(...)</code>) and <code>/refine</code> are not implemented yet, so neither is exercised.</li>
-        <li>Five synthetic tasks are not a benchmark. The adapters for Terminal-Bench, SWE-Bench Pro, OOLONG, AA-LCR and S-NIAH exist in the repaired bench-runner; the runs have not been executed.</li>
-      </ul>
-    </div>
-  </details>
+  <div class="callout">
+    <h4>What happens next</h4>
+    <p>
+      A clean re-run is in progress. It changes four things: <b>n = 5</b> trials per cell; an
+      <b>isolated corpus root per trial</b> so nothing survives between runs; a <b>CLASSIC system
+      prompt written with comparable care</b> and a <b>symmetric post-compaction notice</b>, so the
+      arms differ in tool interface and not in coaching; and a <b>de-contaminated audit task</b>
+      whose answer does not appear in either prompt.
+    </p>
+    <p>
+      <strong>A null result is an acceptable outcome and will be published as one.</strong> If the
+      clean re-run shows no difference, that is what this section will say. Nothing will be
+      republished here until it comes from that run.
+    </p>
+    <p class="fineprint">
+      Full review, including the findings not summarised above:
+      <code>docs/REVIEW.md</code>. Current state of what is and is not measured:
+      <code>docs/RESULTS.md</code> §3.
+    </p>
+  </div>
 </section>
 
 <!-- ──────────────────────── END-TO-END RUN ──────────────────────────── -->
@@ -581,15 +653,20 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
       — including Codex itself and Sandy's built-in <code>codex</code> agent, which is exactly what the
       bench-runner's Terminal-Bench adapter drives. It would have broken arm B and arm C
       <em>identically</em>, which is the kind of fault that yields two believable zeros instead of an
-      error. Fixed in
+      error.
+    </p>
+    <p>
+      <strong>This is not fixed in production.</strong>
       <a href="https://github.com/chutesai/responses-proxy/pull/1">chutesai/responses-proxy PR #1</a>
-      with 13 regression tests that assert on the generated chat messages; the reproduction was
-      proven against a pristine checkout first.
+      is <b>open, not merged</b> — 13 regression tests asserting on the generated chat messages, with
+      the reproduction proven against a pristine checkout first, but still awaiting review.
+      <code>responses.chutes.ai</code> is shared production infrastructure and was deliberately not
+      touched, so <b>the fault is still live today for every Kimi K3 agent using that endpoint</b>.
+      Only our own benchmarking instance runs the fix.
     </p>
     <p class="fineprint">
-      <code>responses.chutes.ai</code> itself was not touched — it is shared production
-      infrastructure, so the fix is a PR awaiting review. Details:
-      <code>docs/RESPONSES_PROXY_FIX.md</code>.
+      Details: <code>docs/RESPONSES_PROXY_FIX.md</code>. An earlier version of this page described
+      the fix as shipped; it is not.
     </p>
   </div>
 

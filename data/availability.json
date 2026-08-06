@@ -1,31 +1,31 @@
 {
   "source_file": "data/model_availability.jsonl",
-  "probes_total": 63,
+  "probes_total": 75,
   "first": "2026-08-05T23:23:14.100108Z",
-  "last": "2026-08-06T01:09:46.946768Z",
+  "last": "2026-08-06T01:31:50.759065Z",
   "models": [
     {
       "model": "moonshotai/Kimi-K3-TEE",
-      "probes": 21,
-      "ok": 21,
+      "probes": 25,
+      "ok": 25,
       "errors": {},
       "availability": 1.0
     },
     {
       "model": "zai-org/GLM-5.1-TEE",
-      "probes": 21,
-      "ok": 21,
+      "probes": 25,
+      "ok": 25,
       "errors": {},
       "availability": 1.0
     },
     {
       "model": "zai-org/GLM-5.2-TEE",
-      "probes": 21,
-      "ok": 6,
+      "probes": 25,
+      "ok": 7,
       "errors": {
-        "HTTP Error 429: Too Many Requests": 15
+        "HTTP Error 429: Too Many Requests": 18
       },
-      "availability": 0.2857
+      "availability": 0.28
     }
   ]
 }
