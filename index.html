@@ -365,22 +365,25 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
           <rect x="690" y="290" width="274" height="114" rx="12"/>
           <text x="827" y="326" class="d-title">sandbox &amp; approvals</text>
           <text x="827" y="352" class="d-sub">execpolicy · approval policy</text>
-          <text x="827" y="372" class="d-sub">audit trail — byte for byte</text>
+          <text x="827" y="372" class="d-sub">audit trail — unchanged</text>
         </g>
 
         <!-- flag note -->
         <g class="d-note">
           <rect x="16" y="424" width="948" height="80" rx="10"/>
-          <text x="36" y="450" class="d-sub d-note-text">RLM mode is a feature flag. Off → nothing is registered and chutescoder behaves exactly like upstream Codex.</text>
+          <text x="36" y="450" class="d-sub d-note-text">RLM mode is a feature flag. Off → nothing is registered and the agent loop is upstream Codex's.</text>
           <text x="36" y="470" class="d-sub d-note-text">On → the python tool is Direct and every other tool is demoted to CodeModeOnly, still callable, just invisible.</text>
-          <text x="36" y="490" class="d-sub d-note-text">One binary, one flag, two harnesses — which is the only reason the A/B below can be called an A/B.</text>
+          <text x="36" y="490" class="d-sub d-note-text">Every gate was traced by hand — but upstream's own test suite has not completed a run since the fork, so this is verified by construction, not by a passing regression suite.</text>
         </g>
       </svg>
     </div>
     <figcaption class="diagram-cap">
       The single <code>python</code> tool is the model's whole surface. Everything the model's code
       calls comes back through Codex's own tool registry as a <code>host_call</code>, so the sandbox
-      and approval prompts are identical in both arms.
+      and approval prompts are meant to be identical with the flag on or off. Note the file shims
+      (<code>read_file</code>, <code>write_file</code>, <code>list_dir</code>, <code>grep</code>) are
+      shell-backed and POSIX-only, and <code>grep</code> needs <code>rg</code> — so RLM mode's file
+      surface does not currently work on Windows.
       <a href="https://github.com/chutesai/chutescode/tree/main/codex-rs/chutes-rlm">Crate source &amp; protocol →</a>
     </figcaption>
   </figure>
