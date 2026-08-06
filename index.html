@@ -77,12 +77,13 @@
     with a second agent architecture bolted alongside the original one. In RLM mode the model gets
     exactly one tool — <code>python</code> — running in a persistent IPython kernel that lives for the
     whole session. Shell, file edits, patches and search become ordinary Python functions inside that
-    kernel. (MCP and sub-agent delegation are part of the design but
-    <a href="#what">are not implemented yet</a>.) Ten tool calls collapse into one cell; a 50k-row result stays
+    kernel. (Sub-agent delegation and <code>/refine</code> are implemented; MCP-from-Python and
+    <code>llm()</code> are still design-only —
+    <a href="#what">see what is actually implemented</a>.) Ten tool calls collapse into one cell; a 50k-row result stays
     addressable as <code>out[7]</code> instead of flooding the context window; and the transcript
     itself becomes <code>ctx</code>, greppable even for the turns compaction already threw away.
-    (That last one is the design. In the twenty trials we recorded, the model never once reached for
-    <code>ctx</code> — <a href="#what">what we actually observed</a> was the plainer and more
+    (That last one is the design. In the 15 trials with saved transcripts, the model never once reached
+    for <code>ctx</code> — <a href="#what">what we actually observed</a> was the plainer and more
     portable property that kernel <em>variables</em> survive compaction.)
     Turn the flag off and the agent loop is upstream Codex's, unchanged — which is what is meant to
     make the benchmark honest. (Not <em>byte for byte</em>: the binary is renamed, the home directory
@@ -98,7 +99,7 @@
     <div><dt>Tools on the wire, default config</dt><dd>1</dd></div>
     <div><dt>Kernel lifetime</dt><dd>whole session</dd></div>
     <div><dt>Kernel variables survive compaction</dt><dd>observed</dd></div>
-    <div><dt><code>ctx</code> used, in 20 recorded trials</dt><dd class="em">0</dd></div>
+    <div><dt><code>ctx</code> used, in 15 trials with transcripts</dt><dd class="em">0</dd></div>
     <div><dt>Standard benchmarks run</dt><dd>0</dd></div>
   </dl>
 </section>
@@ -189,11 +190,13 @@
     </p>
     <p>
       Idea <b>iii</b> — sub-agent delegation, <code>rlm.map</code>, <code>rlm.spawn</code>,
-      <code>agent_message</code> — is <strong>not implemented</strong>. Nor are <code>llm()</code>,
-      MCP-from-Python or <code>/refine</code>. Each returns an explicit error rather than a
-      plausible-looking empty result, which is the right failure mode, but the code below is a
-      <em>design</em>, not a shipped API. Idea <b>iv</b> ships with one caveat: a harness edit
-      currently takes effect on the next <em>session</em>, not the next turn.
+      <code>agent_message</code> — is now <strong>implemented</strong> and was verified live on
+      Kimi K3. <code>/refine</code> is also implemented: a proposer
+      completion, then validate-and-apply with every op logged. <strong>Still not implemented</strong>,
+      each returning an explicit error rather than a plausible-looking empty result:
+      <code>llm()</code> and MCP-from-Python. Idea <b>iv</b> now ships without a caveat: a harness
+      edit takes effect on the next <em>turn</em>, moved from base instructions into a world-state
+      section that the model sees fresh each turn.
     </p>
     <p class="fineprint">
       This disclosure used to live in a collapsed section further down the page. It belongs here,
@@ -234,7 +237,7 @@ print(len(files), "files;", len(suspects), "suspects:", list(suspects))
 
     <article class="idea">
       <div class="idea-num">ii</div>
-      <h3><code>ctx</code> — the transcript, as data <span class="status-chip status-no">used in 0 of our 20 trials</span></h3>
+      <h3><code>ctx</code> — the transcript, as data <span class="status-chip status-no">used in 0 of 15 trials with transcripts</span></h3>
       <p>
         The host pushes the whole conversation into the kernel as <code>ctx</code>. Because the kernel
         is never restarted, <code>ctx</code> keeps the turns that compaction summarised away. When the
@@ -243,10 +246,14 @@ print(len(files), "files;", len(suspects), "suspects:", list(suspects))
       </p>
       <p>
         <strong>It is also the one thing this project has entirely failed to demonstrate.</strong>
-        Across two passes of the compaction experiment — twenty trials, ten of them in the arm that
-        has <code>ctx</code> — the model used it <b>zero</b> times. Not one
-        <code>ctx.grep</code>, <code>ctx.slice</code> or <code>ctx[…]</code>, even though the notice
-        injected at compaction names <code>ctx.grep(...)</code> in the same turn it would be needed.
+        Across two passes of the compaction experiment — twenty trials total, ten of them in the arm
+        that has <code>ctx</code> — the model used it <b>zero</b> times. The verifiable denominator is
+        narrower than that, though: <code>join</code>'s five trials predate transcript logging, so
+        <code>reports/ab_join_*_transcripts.json</code> does not exist and those five can't be checked
+        independently. Of the <b>15</b> RLM-arm trials that do have saved transcripts, <code>ctx</code>
+        is used <b>zero</b> times — not one <code>ctx.grep</code>, <code>ctx.slice</code> or
+        <code>ctx[…]</code> — even though the notice injected at compaction names
+        <code>ctx.grep(...)</code> in the same turn it would be needed.
       </p>
       <p>
         What the model did instead, every single time, was read back a plain kernel variable it had
@@ -273,13 +280,19 @@ ctx[42].content</code></pre>
 
     <article class="idea">
       <div class="idea-num">iii</div>
-      <h3>Delegation is a function call <span class="status-chip status-no">not implemented</span></h3>
+      <h3>Delegation is a function call <span class="status-chip status-partial">implemented, unretained</span></h3>
       <p>
-        <em>Design, not shipped.</em> The intent: <code>await rlm(...)</code> spawns a sub-agent with
-        its own model, its own kernel and its own context window — it reads 200k tokens, the parent
-        gets back a paragraph — and fan-out works because the kernel runs cells under IPython's
-        autoawait. The Python side exists and is exercised against a mock host; <strong>the Rust host
-        does not implement any of it yet</strong>, and calling these today returns an explicit error.
+        <em>Implemented and live-verified, 2026-08-06.</em> <code>await rlm(...)</code> spawns a
+        sub-agent with its own model, its own kernel and its own context window — it reads 200k
+        tokens, the parent gets back a paragraph — and fan-out works because the kernel runs cells
+        under IPython's autoawait. The Python side (<code>rlm.py</code>) calls straight through to the
+        Rust host: <code>rlm_spawn</code>, <code>rlm_await</code>, <code>rlm_list</code>,
+        <code>rlm_send</code> and <code>rlm_recv</code> all dispatch in
+        <code>codex-rs/core/src/tools/handlers/rlm_python.rs</code>. A real run on Kimi K3 spawned a
+        child, got its answer back, and both <code>rlm_list</code> and the TUI's session tree showed
+        it. <strong>The caveat:</strong> that verification has no retained artefact — the Sandy
+        sandbox it ran in was never copied out, so it is not independently checkable yet, and is
+        marked accordingly rather than treated as settled.
       </p>
       <pre class="code" data-lang="python"><code>answer = await rlm("Read src/auth/** and explain how sessions are validated")
 
@@ -293,20 +306,22 @@ await agent_message.send("skip the vendored deps",
                          receiver_name=handles[0].session_name)</code></pre>
       <p class="idea-foot">
         The argument for it is that a sub-agent is the cheapest way to look at something large — you
-        pay for the summary, not for the reading. That argument is untested here, because none of
-        this runs yet.
+        pay for the summary, not for the reading. That argument is now implemented; whether it holds
+        up under a retained, repeatable measurement is still open.
       </p>
     </article>
 
     <article class="idea">
       <div class="idea-num">iv</div>
-      <h3>The harness edits itself <span class="status-chip status-partial">next session, not next turn</span></h3>
+      <h3>The harness edits itself, and edits land next turn</h3>
       <p>
         <code>rlm.harness</code> is the state that shapes the agent — prompt notes, sub-agent
         definitions, skills, memories. The agent can write to it mid-task and the change persists
         across sessions. The design calls for it to land in the system prompt on the <em>next
-        turn</em>; today the harness is resolved once per session, so it lands on the next
-        <em>session</em>. Write a memory the
+        turn</em>, and — fixed 2026-08-06 — that is now what happens: harness content moved out of
+        the fixed base instructions into a world-state section the model is shown fresh every turn,
+        so a memory written on turn 4 is visible on turn 5 rather than only in the next session.
+        Write a memory the
         moment you learn something that cost you time. Write a skill once you have done the same
         multi-step thing twice.
       </p>
@@ -409,7 +424,7 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
           <text x="460" y="320" class="d-title">Codex ToolRegistry</text>
           <text x="460" y="344" class="d-sub">shell · read_file · write_file · apply_patch</text>
           <text x="460" y="364" class="d-sub">list_dir · grep · web_search · web_fetch</text>
-          <text x="460" y="384" class="d-sub">harness_op<tspan class="d-todo"> · mcp_call · llm · rlm_spawn (not yet)</tspan></text>
+          <text x="460" y="384" class="d-sub">harness_op · rlm_spawn · rlm_await · rlm_recv<tspan class="d-todo"> · mcp_call · llm (not yet)</tspan></text>
         </g>
         <path d="M 654 347 L 684 347" class="d-edge" marker-end="url(#ah)"/>
 
@@ -463,12 +478,17 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
     </div>
     <div class="fact">
       <h4>Tested, with a caveat worth stating</h4>
-      <p><b>44</b> Rust tests cover the protocol, kernel supervisor and continual harness;
-      <b>15</b> of them boot the real Python sidecar. <b>37</b> Python checks drive the kernel
-      against a <em>mock</em> host — and several of those exercise <code>llm()</code>,
-      <code>rlm.spawn</code> and <code>agent_message</code>, which the real host does not implement.
-      A green Python suite therefore overstates what ships. (Earlier versions of this page said
-      43 / 13 / 33. Those were miscounts, caught by review.)</p>
+      <p><b>58</b> Rust tests cover the protocol, kernel supervisor and continual harness;
+      <b>14</b> of them boot the real Python sidecar. <b>36</b> Python checks drive the kernel
+      against a <em>mock</em> host — and one of those still exercises <code>llm()</code>, which the
+      real host does not implement (<code>rlm.spawn</code> and <code>agent_message</code> are no
+      longer mock-only — the Rust host dispatches both now). A green Python suite therefore still
+      slightly overstates what ships, just not by as much. (Earlier versions of this page said
+      43 / 13 / 33, then 44 / 15 / 37. Both were miscounts, caught by review — recount with
+      <code>grep -rhE '^\s*#\[(tokio::)?test(\(|])' codex-rs/chutes-rlm/src/*.rs | wc -l</code> for
+      the Rust total, <code>grep -rc 'require_python!()' codex-rs/chutes-rlm/src/*.rs</code> for the
+      sidecar-driving subset, and <code>grep -oP '(?&lt;!def )check\(' &lt;file&gt; | wc -l</code> for
+      the Python checks.)</p>
     </div>
     <div class="fact">
       <h4>The one-tool claim, checked off the wire</h4>
@@ -685,9 +705,11 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
       <div class="fault-num">Fault 4</div>
       <h4>The feature the design leads with was never exercised</h4>
       <p>
-        Across both passes — <b>20 trials</b>, 10 of them in the arm that has it — <code>ctx</code>
-        was used <b>zero</b> times. Every recovery was a plain kernel-variable lookup, even though
-        the post-compaction notice names <code>ctx.grep(...)</code> in the same turn.
+        Across both passes — 20 trials total, 10 of them in the arm that has it, but only
+        <b>15</b> with saved transcripts to check (<code>join</code>'s five predate transcript
+        logging) — <code>ctx</code> was used <b>zero</b> times in the 15 that are verifiable. Every
+        recovery was a plain kernel-variable lookup, even though the post-compaction notice names
+        <code>ctx.grep(...)</code> in the same turn.
       </p>
       <p>
         What the experiment demonstrates is therefore <strong>variable persistence across
@@ -782,7 +804,7 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
       all of that is prompt length rather than mechanism. On one task it also used more turns, which
       prompt length does not explain. <b>No in-window advantage shown.</b>
       &nbsp;·&nbsp; <strong>Compaction:</strong> untested — the mechanism never fired.
-      &nbsp;·&nbsp; <strong><code>ctx</code>:</strong> unexercised in 20 trials.
+      &nbsp;·&nbsp; <strong><code>ctx</code>:</strong> unexercised in the 15 trials with transcripts.
       &nbsp;·&nbsp; <strong>Variable persistence:</strong> exercised, and it worked.
     </p>
     <p class="fineprint">
@@ -822,12 +844,18 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
       0.333</b>. It was reported before it was audited. It is void, for two independent reasons,
       either of which is sufficient on its own.
     </p>
+    <p class="fineprint">
+      These three are numbered 6–8, continuing the fault-grids above rather than a page-wide tally.
+      They are additional to, and separate from, the project's other fault counts: four
+      product/proxy faults and thirteen benchmark-pipeline faults, tracked in
+      <code>docs/RESULTS.md</code> §2 and <code>docs/BENCHMARK_SETUP.md</code> §1 respectively.
+    </p>
   </div>
 
   <div class="fault-grid">
 
     <article class="fault">
-      <div class="fault-num">Fault 16</div>
+      <div class="fault-num">Fault 6</div>
       <h4>The reference solution was sitting in the agent's own working directory</h4>
       <p>
         Upstream Terminal-Bench task archives ship the reference solution and the held-out tests
@@ -850,7 +878,7 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
     </article>
 
     <article class="fault">
-      <div class="fault-num">Fault 17</div>
+      <div class="fault-num">Fault 7</div>
       <h4>An agent that did nothing would have been scored as if it had succeeded</h4>
       <p>
         The scoring path checked that <code>task/solution.sh</code> existed, then
@@ -867,7 +895,7 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
     </article>
 
     <article class="fault">
-      <div class="fault-num">Fault 18</div>
+      <div class="fault-num">Fault 8</div>
       <h4>The sample was smaller than reported, and one arm may never have run</h4>
       <p>
         Five of the six items errored out with no captured output, so there was <b>one scoreable
@@ -992,6 +1020,24 @@ Output:
       recording, because <code>subprocess</code> from inside the kernel bypasses the approval path
       that the host-call design exists to preserve. (That run was
       <code>danger-full-access</code>, so nothing was violated.)
+    </p>
+    <p>
+      <strong>And the first fix only covered half of it.</strong> The envelope has a second lossy
+      property: the body is silently cut to 10,000 bytes with a truncation marker spliced in
+      <em>without newlines</em>. Run against the project's own <code>truncate.rs</code>, a
+      40,679-byte file came back from <code>read_file</code> as <b>10,027 bytes</b> with the marker
+      mid-line, and <code>list_dir</code> over 600 paths returned 295 entries, one of them a
+      truncated-path string standing in for a real name. Worse, the only signal the body was
+      incomplete — <code>Total output lines:</code> — was exactly what the first fix discarded as
+      metadata; one of its own tests asserted that discard.
+    </p>
+    <p class="fineprint">
+      Fixed in <a href="https://github.com/chutesai/chutescode/commit/f39d784646a4914b94e44ead0bda66f541dfbab2"><code>f39d784</code></a>:
+      the truncation signal now survives, <code>read_file</code> refuses a truncated read and tells
+      the model to slice with <code>offset</code>/<code>limit</code> instead, and <code>list_dir</code>
+      reports truncation so a short listing is not mistaken for a small directory. The test file
+      (<code>codex-rs/core/src/tools/handlers/rlm_python_tests.rs</code>) now has <b>nine</b> tests
+      total, all passing — the original six plus three new ones for the truncation signal.
     </p>
   </div>
 
@@ -1138,17 +1184,22 @@ Output:
       error.
     </p>
     <p>
-      <strong>This is not fixed in production.</strong>
+      <strong>Fixed and merged upstream, production status unverified.</strong>
       <a href="https://github.com/chutesai/responses-proxy/pull/1">chutesai/responses-proxy PR #1</a>
-      is <b>open, not merged</b> — 13 regression tests asserting on the generated chat messages, with
-      the reproduction proven against a pristine checkout first, but still awaiting review.
-      <code>responses.chutes.ai</code> is shared production infrastructure and was deliberately not
-      touched, so <b>the fault is still live today for every Kimi K3 agent using that endpoint</b>.
-      Only our own benchmarking instance runs the fix.
+      was <b>merged 2026-08-06T14:13:19Z</b> (<code>gh pr view 1 --repo chutesai/responses-proxy
+      --json state,mergedAt</code> → <code>MERGED</code>) — 13 regression tests asserting on the generated chat
+      messages, with the reproduction proven against a pristine checkout first.
+      <code>responses.chutes.ai</code> is shared production infrastructure, and merging a PR is not
+      the same as deploying it: whether production currently carries this fix is a
+      <b>separate, currently unverified question</b> — no probe of production is retained, so this
+      page does not restate the "still live in production" claim without one. Our own benchmarking
+      instance runs the fix either way.
     </p>
     <p class="fineprint">
-      Details: <code>docs/RESPONSES_PROXY_FIX.md</code>. An earlier version of this page described
-      the fix as shipped; it is not.
+      Details: <code>docs/RESPONSES_PROXY_FIX.md</code>. An earlier version of this page described the
+      PR as open and awaiting review; it has since merged. A second behavioural fix (accept
+      inter-agent messages instead of 422-ing, <code>c224977</code>, v0.1.8) is beyond this merged PR
+      and not yet merged.
     </p>
   </div>
 
