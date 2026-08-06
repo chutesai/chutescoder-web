@@ -1,0 +1,21 @@
+{
+  "retracted": true,
+  "retracted_on": "2026-08-06",
+  "notice": "The controlled harness A/B that this file used to contain has been RETRACTED. No measurement from it is served here any more. If you have a cached or copied version of this file, discard it.",
+  "why": [
+    "The headline accuracy result was contaminated: bench/ab_harness.py never cleaned /tmp between runs, so the compaction task ran with roughly 480 leftover same-named files from earlier tasks still on disk. The single failing trial that the entire accuracy result rested on went looking in those directories and said so in its own final message. Dropping that trial leaves the two clean trials identical on accuracy and identical on turns.",
+    "The arms were not comparable. The claim 'the only variable is the tool interface' was false: the RLM arm received a 5,438-byte system prompt teaching batching and filtering plus a post-compaction notice naming ctx.grep, while the CLASSIC arm received 232 bytes and was never told that compaction had happened."
+  ],
+  "also": [
+    "In-prompt task leakage: the RLM system prompt's worked example greps for 'eval(', which is the answer to the audit task.",
+    "One row (5-fact compaction) had no per-trial record on disk at all; its numbers existed only as hand-typed literals in web/build_data.py.",
+    "At the sample sizes used, no assignment of outcomes could have produced a statistically significant result.",
+    "Transcripts were not saved, so several behavioural claims in the write-up cannot be checked against the artefacts."
+  ],
+  "full_review": "docs/REVIEW.md",
+  "current_state": "docs/RESULTS.md section 3",
+  "raw_per_trial_records": "reports/ab_*.json (not published on this site)",
+  "next": "A clean re-run is in progress: n=5 per cell, an isolated corpus root per trial, a CLASSIC system prompt written with comparable care, a symmetric post-compaction notice, and a de-contaminated audit task. A null result is an acceptable outcome and will be published as one.",
+  "tasks": [],
+  "metrics": []
+}
