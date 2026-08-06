@@ -62,8 +62,9 @@
     <b>chutescoder</b> is a Chutes-owned fork of <a href="https://github.com/openai/codex">OpenAI's Codex</a>
     with a second agent architecture bolted alongside the original one. In RLM mode the model gets
     exactly one tool — <code>python</code> — running in a persistent IPython kernel that lives for the
-    whole session. Shell, file edits, patches, search, MCP and sub-agents all become ordinary Python
-    functions inside that kernel. Ten tool calls collapse into one cell; a 50k-row result stays
+    whole session. Shell, file edits, patches and search become ordinary Python functions inside that
+    kernel. (MCP and sub-agent delegation are part of the design but
+    <a href="#what">are not implemented yet</a>.) Ten tool calls collapse into one cell; a 50k-row result stays
     addressable as <code>out[7]</code> instead of flooding the context window; and the transcript
     itself becomes <code>ctx</code>, greppable even for the turns compaction already threw away.
     Turn the flag off and the agent loop is upstream Codex's, unchanged — which is what is meant to
