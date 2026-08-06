@@ -137,12 +137,22 @@
       independent one by a similar margin:
     </p>
     <table class="mini-table">
+      <caption class="mini-caption">Terminal-Bench <b>2.1</b> — not Terminal-Bench Hard</caption>
       <thead><tr><th>Model</th><th>Lab harness</th><th>AA harness</th><th>Gap</th></tr></thead>
       <tbody>
         <tr><td>Kimi K3</td><td>88.3 <span class="dim">(KimiCode)</span></td><td>85.02</td><td class="neg">−3.3</td></tr>
         <tr><td>GLM-5.2</td><td>81.0 <span class="dim">(Terminus-2)</span></td><td>77.90</td><td class="neg">−3.1</td></tr>
       </tbody>
     </table>
+    <p class="fineprint">
+      <strong>These are 2.1 figures, and the set we run is Terminal-Bench <em>Hard</em> — a different,
+      harder task list with no published Kimi K3 score at all.</strong> The only public Hard number for
+      either model is GLM-5.2 at 50.76 % (AA), and GLM-5.2 was the model that was not reachably
+      available. So nothing above is an anchor for anything we measure: a low arm score of ours next
+      to an 85.02 would not mean our pipeline is broken by 4×, it would mean the two numbers were
+      never measuring the same benchmark. This is stated here rather than in a footnote because the
+      mistake is easy, and we made it in our own plan document until it was caught.
+    </p>
     <p class="fineprint">
       Sources: <a href="https://huggingface.co/moonshotai/Kimi-K3">Moonshot model card</a>,
       <a href="https://huggingface.co/zai-org/GLM-5.2">Z.ai model card</a>,
