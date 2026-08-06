@@ -32,6 +32,26 @@ material and a single invented score poisons the whole page.
 `results.json` ships with `"cells": []`, so every (benchmark × model × arm) cell
 renders as `pending`. That is the intended state until real runs land.
 
+## The second rule: source claims to the wire, not to a log line
+
+The page used to say the model is offered exactly one tool and cite the
+`model_visible=["python"]` log line for it. That line is emitted *before*
+`finalize_tool_router` runs, so it reports an intermediate registry state. Under
+the documented key `[features.code_mode] direct_only_tool_namespaces`, **nine
+tools go over the wire while the log still says one** — the reviewer measured it
+by pointing the binary at a recording HTTP server.
+
+The substantive claim survived: **on default config the request carries `python`
+and nothing else.** The page now says "on the default configuration", names the
+escape hatch, and cites the recorded requests. The log field is renamed
+`exposure_after_collapse` upstream. If you restore a one-tool claim anywhere,
+cite a wire capture.
+
+Same rule, applied to Windows: say **the build succeeded on `windows-latest` and
+43 of 44 tests passed, the one failure being our own POSIX-only test**. Do *not*
+write "Windows CI failed" — that reads as "it doesn't build on Windows", which is
+false.
+
 ---
 
 ## The A/B is retracted — twice. Read this before restoring it
@@ -134,11 +154,23 @@ page renders whatever the file says.
 ## The two run records
 
 `data/binary_run.json` — the **real binary**, `bench/binary_ab.sh parser-bug`,
-`rlm.enabled=true`, provider `chutes`, Kimi K3. Transcribed from
-`reports/binary_ab/{summary.jsonl,C-chutescoder.jsonl}` and the session rollout
-for thread `019fd4dc-…`. It deliberately carries **no timing or token
-comparison** between the two arms: n = 1 each, and this page asserts no
+`rlm.enabled=true`, provider `chutes`, Kimi K3. Re-derived cell by cell from the
+session rollout for thread `019fd4dc-…`. It deliberately carries **no timing or
+token comparison** between the two arms: n = 1 each, and this page asserts no
 performance result in either direction.
+
+**Read the artefact note in that file before citing it.** `bench/binary_ab.sh`
+used a fixed output directory and truncated it on every invocation, so
+`reports/binary_ab/` holds exactly one of the five attempts `docs/RESULTS.md`
+§3.7b cites — the last, whose RLM arm hit a provider 403. **It is not this run.**
+This run is auditable only from the session rollout, which lives outside the
+repository. The script now writes one timestamped directory per invocation. This is the same mistake that lost `recall-5`'s per-trial records, in
+a second script, which is why the page states it rather than a commit message.
+
+The third review pass also found that the earlier version of this file miscounted
+its error cells and said the run verified with a host call when cell 10 used
+`subprocess`. Both are corrected, and the timeline now walks all 11 cells —
+including the four the file-shim bug corrupted.
 
 `data/smoke_run.json` — the pre-integration driver run, hand-transcribed from
 `reports/smoke_kimi_k3/RESULT.md`. There is no machine-readable source for it.

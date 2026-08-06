@@ -1,9 +1,9 @@
 {
-  "$comment": "The real chutescoder binary, run end to end with RLM mode on. Every value here is read off reports/binary_ab/{summary.jsonl,C-chutescoder.jsonl} and the session rollout for thread 019fd4dc-b4d5-73c2-bc87-fd45e5379f82. Deliberately NO timing comparison between the arms: n = 1 per arm, and this page carries no performance claim in either direction.",
+  "$comment": "The real chutescoder binary, run end to end with RLM mode on. Every value here is read off the session rollout for thread 019fd4dc-b4d5-73c2-bc87-fd45e5379f82 — re-derived cell by cell from that file on 2026-08-06 after the third review pass found that the earlier version of this file miscounted its error cells and described cell 10 wrongly. Deliberately NO timing comparison between the arms: n = 1 per arm, and this page carries no performance claim in either direction. NOTE ON ARTEFACTS: bench/binary_ab.sh used a fixed output directory and truncated it on every invocation, so reports/binary_ab/ holds only the LAST attempt (whose RLM arm hit a provider 403), not this one. The script now writes one timestamped directory per run. This run is auditable only from the rollout path below, which lives outside the repository.",
   "source_files": [
-    "reports/binary_ab/summary.jsonl",
-    "reports/binary_ab/C-chutescoder.jsonl",
-    "~/.chutescoder/sessions/2026/08/06/rollout-…-019fd4dc-b4d5-73c2-bc87-fd45e5379f82.jsonl"
+    "~/.chutescoder/sessions/2026/08/06/rollout-2026-08-06T04-17-41-019fd4dc-b4d5-73c2-bc87-fd45e5379f82.jsonl",
+    "reports/binary_ab/summary.jsonl (last attempt only — see the note above)",
+    "reports/binary_ab/C-chutescoder.jsonl (last attempt only)"
   ],
   "date": "2026-08-06",
   "command": "bench/binary_ab.sh parser-bug",
@@ -20,20 +20,26 @@
     { "label": "arms run", "value": "2 — one flag apart" },
     { "label": "rlm.enabled", "value": "true (arm C)", "emphasis": true },
     { "label": "python cells executed", "value": "11" },
-    { "label": "cells that returned an error", "value": "3" },
+    { "label": "cells returned as errors", "value": "3 — cells 2, 4, 5" },
+    { "label": "cells that hit the file-shim corruption", "value": "4 — 0, 1, 3, 7", "emphasis": true },
     { "label": "outcome, both arms", "value": "passed" },
     { "label": "tests modified", "value": "none" }
   ],
 
   "timeline": [
-    { "text": "`chutescoder exec` starts with `-c rlm.enabled=true`, provider `chutes`, model `moonshotai/Kimi-K3-TEE`. The IPython sidecar boots." },
-    { "text": "`print(list_dir(\".\", depth=2))` — a real host call, routed back through Codex's own tool registry.", "highlight": true },
-    { "text": "Reads both files in **one** cell and binds them to variables, then names the bug: `text.split(\"\\n\")[:-1]` unconditionally drops the final element." },
-    { "text": "Tries `apply_patch(...)` from inside Python. The host returns `HostError: unsupported call: apply_patch` — an explicit error, not a plausible-looking empty result — and the model switches to `write_file` in the next cell." },
-    { "text": "Runs the tests, hits the same pytest capture-teardown fault the earlier smoke run hit, and works around it with `--capture=no -p no:cacheprovider`." },
-    { "text": "Verifies with `git diff` from inside the kernel: only `parser.py` changed, both tests pass.", "highlight": true }
+    { "text": "**cell 0** — `chutescoder exec` starts with `-c rlm.enabled=true`, provider `chutes`, model `moonshotai/Kimi-K3-TEE`; the IPython sidecar boots and `print(list_dir(\".\", depth=2))` makes a real host call, routed back through Codex's own tool registry. It returns `['Exit code: 0', 'Wall time: 0 seconds', 'Output:', './.git', …]` — **three phantom entries, the file-shim bug, on the very first call.**", "highlight": true },
+    { "text": "**cell 1** — reads both files in *one* cell and binds them to variables. Each comes back with 46 bytes of `Exit code: … Output:` header prepended. The model reads past it and names the bug correctly: `text.split(\"\\n\")[:-1]` unconditionally drops the final element." },
+    { "text": "**cell 2** — tries `apply_patch(...)` from inside Python. The host returns `HostError: apply_patch: unsupported call: apply_patch` — an explicit error, not a plausible-looking empty result — and the model switches to `write_file` in the next cell." },
+    { "text": "**cell 3** — `write_file(\"parser.py\", parser_src.replace(...))`. Because `parser_src` still carries the header, **this writes the header into the file.**", "highlight": true },
+    { "text": "**cell 4** — runs the tests through `shell(...)`. They fail on the corrupted file, and because `run_shell` flattened the exit code to 0/1 the failure surfaces as `HostError: shell: Exit code: 1` rather than as test output." },
+    { "text": "**cell 5** — tries `shell(..., raise_on_error=False)` to get around that, and gets `TypeError: shell() got an unexpected keyword argument 'raise_on_error'`." },
+    { "text": "**cell 6** — abandons the host-call API and runs pytest through `import subprocess` instead. This one returns normally (`exit: 2`) even though the command failed, so it is not counted among the error cells." },
+    { "text": "**cell 7** — re-reads `parser.py` and sees the corruption compounded: `'Exit code: 0\\nWall time: 0 seconds\\nOutput:\\nExit code: 0\\nWall time: 0 seconds\\nOutput:\\n\"\"\"A tiny config parser…'` — **two stacked headers.** The model diagnoses it: *“the shell wrapper prepended its status lines into `parser.py`”*.", "highlight": true },
+    { "text": "**cell 8** — repairs the file by hand, writing the clean source with a plain `open(...)` rather than `write_file`, then reads it back and asserts equality. This is the step that saved the run — and the reason the bug survived four executions of this fixture unnoticed." },
+    { "text": "**cell 9** — pytest through `subprocess` again: `exit: 0`, both tests pass." },
+    { "text": "**cell 10** — verifies with `git status --short` and `git diff`, both through `subprocess` rather than as host calls: only `parser.py` changed." }
   ],
 
-  "proves": "The shipped binary works end to end with RLM mode on: the kernel boots, real Python executes, host calls route through Codex's existing tool registry, the error path surfaces failures explicitly, and the task is completed correctly. Arm B — the same binary with `rlm.enabled=false` — completed it too, so the flag does not break the product in either position.",
-  "does_not_prove": "Nothing about which harness is better. This is n = 1 per arm on one small fixture task, and no timing or token comparison is drawn from it — see the retraction in section 04 for why n = 1 wall-clock differences are not reported here."
+  "proves": "The shipped binary works end to end with RLM mode on: the kernel boots, real Python executes, host calls route through Codex's existing tool registry, the error path surfaces failures explicitly, and the task is completed correctly. Arm B — the same binary with `rlm.enabled=false` — completed it too, so the flag does not break the product in either position. It also proves the reverse of what a green run usually proves: the file API was corrupting files throughout, and only the model's own repair work kept the outcome clean.",
+  "does_not_prove": "Nothing about which harness is better. This is n = 1 per arm on one small fixture task, and no timing or token comparison is drawn from it — see the retraction in section 04 for why n = 1 wall-clock differences are not reported here. It also does not prove the run was clean: it was not, and the four cells above marked as corrupted are why the file shims were rewritten."
 }

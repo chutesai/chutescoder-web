@@ -55,8 +55,12 @@
     </p>
     <p>
       What <em>is</em> measured, and is good news: <a href="#e2e">the real binary runs end to end</a>
-      against Kimi K3 with RLM mode on, and running it turned up a third infrastructure bug that
-      would have killed the kernel inside other people's repositories and nowhere else.
+      against Kimi K3 with RLM mode on. Running it — and then reading the rollout of a run we had
+      already written up as a success — turned up
+      <a href="#e2e">two more infrastructure bugs</a>, four in all. The best of them, found by the
+      third review pass, is that <strong>chutescoder's own file API was silently corrupting every
+      file it touched</strong>. The run passed anyway, because the model noticed and repaired the
+      damage by hand.
     </p>
   </aside>
 </div>
@@ -88,7 +92,7 @@
     <a class="btn" href="#results">Benchmark status</a>
   </div>
   <dl class="hero-stats">
-    <div><dt>Tools visible to the model</dt><dd>1</dd></div>
+    <div><dt>Tools on the wire, default config</dt><dd>1</dd></div>
     <div><dt>Kernel lifetime</dt><dd>whole session</dd></div>
     <div><dt>Kernel variables survive compaction</dt><dd>observed</dd></div>
     <div><dt><code>ctx</code> used, in 20 recorded trials</dt><dd class="em">0</dd></div>
@@ -190,10 +194,16 @@
       <div class="idea-num">i</div>
       <h3>One tool. The rest are functions.</h3>
       <p>
-        The model's tool list has exactly one entry, <code>python</code>. Every host capability —
-        shell, patches, file IO, ripgrep, web search, MCP — is a Python name in the kernel namespace.
-        Reading twelve files is a <code>for</code> loop, not twelve round trips, and the filtering
-        happens <em>before</em> anything reaches the context window.
+        On the default configuration, the tool array in the request sent to the model has exactly one
+        entry, <code>python</code>. Every host capability — shell, patches, file IO, ripgrep, web
+        search, MCP — is a Python name in the kernel namespace. Reading twelve files is a
+        <code>for</code> loop, not twelve round trips, and the filtering happens <em>before</em>
+        anything reaches the context window.
+      </p>
+      <p class="fineprint">
+        That sentence is sourced to the <em>wire</em>, not to a log line — see
+        <a href="#how">how the one-tool claim is checked</a>, and the documented config key that
+        breaks it.
       </p>
       <pre class="code" data-lang="python"><code>files = [p for p in list_dir("src", depth=3) if p.endswith(".py")]
 srcs  = {p: read_file(p) for p in files}
@@ -318,7 +328,7 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
 
   <figure class="diagram-card">
     <div class="diagram-scroll">
-      <svg viewBox="0 0 980 520" role="img" aria-labelledby="diagtitle diagdesc" class="diagram">
+      <svg viewBox="0 0 980 546" role="img" aria-labelledby="diagtitle diagdesc" class="diagram">
         <title id="diagtitle">chutescoder RLM architecture</title>
         <desc id="diagdesc">The model calls a single python tool. The Rust host forwards the code to a
         persistent IPython sidecar over newline-delimited JSON. When the model's code calls a host
@@ -399,20 +409,24 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
 
         <!-- flag note -->
         <g class="d-note">
-          <rect x="16" y="424" width="948" height="80" rx="10"/>
+          <rect x="16" y="424" width="948" height="102" rx="10"/>
           <text x="36" y="450" class="d-sub d-note-text">RLM mode is a feature flag. Off → nothing is registered and the agent loop is upstream Codex's.</text>
           <text x="36" y="470" class="d-sub d-note-text">On → the python tool is Direct and every other tool is demoted to CodeModeOnly, still callable, just invisible.</text>
-          <text x="36" y="490" class="d-sub d-note-text">Every gate was traced by hand — but upstream's own test suite has not completed a run since the fork, so this is verified by construction, not by a passing regression suite.</text>
+          <text x="36" y="490" class="d-sub d-note-text">On default config only: [features.code_mode] direct_only_tool_namespaces promotes demoted tools back, and nine reached the wire in a reviewer's capture.</text>
+          <text x="36" y="510" class="d-sub d-note-text">Every gate was traced by hand — but upstream's own test suite has not completed a run since the fork, so this is verified by construction, not by a passing regression suite.</text>
         </g>
       </svg>
     </div>
     <figcaption class="diagram-cap">
-      The single <code>python</code> tool is the model's whole surface. Everything the model's code
-      calls comes back through Codex's own tool registry as a <code>host_call</code>, so the sandbox
-      and approval prompts are meant to be identical with the flag on or off. Note the file shims
+      On the default configuration the single <code>python</code> tool is the model's whole surface.
+      Everything the model's code calls comes back through Codex's own tool registry as a
+      <code>host_call</code>, so the sandbox and approval prompts are meant to be identical with the
+      flag on or off. Note the file shims
       (<code>read_file</code>, <code>write_file</code>, <code>list_dir</code>, <code>grep</code>) are
-      shell-backed and POSIX-only, and <code>grep</code> needs <code>rg</code> — so RLM mode's file
-      surface does not currently work on Windows.
+      shell-backed — they run <code>cat</code>, <code>sed</code>, <code>find</code> and
+      <code>rg</code> — so RLM mode's file surface is POSIX-only and does not currently work on
+      Windows. Routing them through the shell is also what caused
+      <a href="#e2e">the worst bug this project found</a>.
       <a href="https://github.com/chutesai/chutescode/tree/main/codex-rs/chutes-rlm">Crate source &amp; protocol →</a>
     </figcaption>
   </figure>
@@ -444,13 +458,48 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
       43 / 13 / 33. Those were miscounts, caught by review.)</p>
     </div>
     <div class="fact">
+      <h4>The one-tool claim, checked off the wire</h4>
+      <p>
+        There is a log line that reports the tool list after RLM mode collapses it, and this page
+        used to treat it as proof. It is not: it is emitted <em>before</em>
+        <code>finalize_tool_router</code> runs, and under the documented config key
+        <code>[features.code_mode] direct_only_tool_namespaces</code> the reviewer measured
+        <b>nine tools going over the wire while the log still said one</b>.
+      </p>
+      <p>
+        So the claim is now sourced to recorded HTTP requests instead. Pointing the binary at a
+        recording server: with the flag on, the request carries <code>['python']</code>; with it off,
+        nine tools. <strong>On default config the substantive claim holds.</strong> The log field is
+        renamed <code>exposure_after_collapse</code> and carries a comment telling you to trust the
+        wire — a diagnostic that can disagree with reality should not be quoted as evidence.
+      </p>
+      <p class="fineprint">
+        Related, and stated because the code implies otherwise: with this model slug
+        <code>apply_patch</code> never becomes model-visible at all, so the deliberate
+        <code>apply_patch</code> exemption above is <b>unexercised at product level</b>. What ships
+        here is <code>python</code>, not “<code>python</code> plus <code>apply_patch</code>”.
+      </p>
+    </div>
+    <div class="fact">
       <h4>CI, stated exactly</h4>
       <p>
-        <b>Linux is green</b> — <a href="https://github.com/chutesai/chutescode/actions/runs/31061182190">run
-        31061182190</a> built <code>chutescoder</code>, ran the Rust suite in release, ran the binary
-        and uploaded it. <b>Windows has never completed</b>: the job was cancelled twice by
-        subsequent pushes (<code>cancel-in-progress</code>), so no Windows binary exists — and RLM
-        mode's file surface is POSIX-only anyway.
+        <b>Linux is green</b> — in <a href="https://github.com/chutesai/chutescode/actions/runs/31064922859">run
+        31064922859</a> the <code>linux-x64</code> job built <code>chutescoder</code>, ran the Rust
+        suite in release, ran the binary and uploaded it.
+      </p>
+      <p>
+        <b>Windows builds.</b> In the same run, <code>Build chutescoder</code> <b>succeeded</b> on
+        <code>windows-latest</code>, and <b>43 of 44</b> Rust tests passed. The single failure was
+        <em>our own test</em> — it built a cell that ignores its watchdog using <code>/dev/zero</code>
+        and <code>select()</code>, both POSIX-only, so on Windows the cell failed fast and the test
+        saw an error where it expected a timeout. It has been rewritten with
+        <code>threading.Event().wait()</code>, which blocks inside C on every platform.
+        <b>The product compiled; the test was not portable</b> — and those are different enough that
+        “Windows CI failed” would have been the wrong sentence.
+        <a href="https://github.com/chutesai/chutescode/actions/workflows/chutescoder-build.yml">Current
+        state of every run →</a>
+        (RLM mode's <em>file surface</em> is a separate matter and is still POSIX-only — see the
+        diagram caption.)
       </p>
       <p>
         The two red checks you will see on the fork, <code>blocking-ci</code> and
@@ -723,6 +772,13 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
       &nbsp;·&nbsp; <strong><code>ctx</code>:</strong> unexercised in 20 trials.
       &nbsp;·&nbsp; <strong>Variable persistence:</strong> exercised, and it worked.
     </p>
+    <p class="fineprint">
+      To be exact about the rule this page follows, because the review pressed on it: no
+      <em>number</em> from either pass is published here, in either direction. The sentence above is
+      the weaker statement that survives — that the experiment showed no advantage, on data that is
+      itself contaminated by the prompt-length confound. It is a report of what was <em>not</em>
+      established, not a finding that the harness is worse.
+    </p>
     <p>
       What would actually settle it: an RLM prompt trimmed to the baseline's length so the token
       column measures the mechanism; a compaction task whose summariser demonstrably <em>loses</em>
@@ -765,6 +821,57 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
   </div>
 
   <div class="callout callout-warn">
+    <div class="finding-tag">the fourth fault, and the best one this project found</div>
+    <h4>chutescoder's own file API was corrupting every file it touched</h4>
+    <p>
+      Codex has no first-class file tools — reading a file <em>is</em> a shell command there — so
+      chutescoder's <code>read_file</code>, <code>write_file</code>, <code>list_dir</code> and
+      <code>grep</code> are shims over the shell tool. And <code>run_shell</code> was returning the
+      shell tool's <strong>model-facing formatted text</strong> as if it were <code>stdout</code>:
+    </p>
+    <pre class="code" data-lang="run_shell → stdout"><code>Exit code: 0
+Wall time: 0.1 seconds
+Output:
+&lt;the actual bytes&gt;</code></pre>
+    <p>
+      Every shim then ate that envelope. <code>list_dir</code> returned <b>three phantom entries</b>
+      — <code>Exit</code>, <code>Wall</code>, <code>Output:</code> — on every call.
+      <code>read_file</code> prepended <b>46 bytes</b> of header to every file it read. And
+      <code>write_file(path, read_file(path))</code> — the ordinary read-modify-write an agent does
+      constantly — wrote that header <strong>into the file</strong>, and
+      <strong>compounded on each round trip</strong>: at cell 7 of the run above,
+      <code>parser.py</code> is carrying <em>two</em> stacked headers.
+    </p>
+    <p class="retraction-rule">
+      <strong>The run passed anyway — because the model noticed the corruption and repaired it by
+      hand.</strong> That is the worst way for a bug to survive a test: the agent's competence
+      concealed it. It corrupts a file and reports success, which is exactly the failure shape the
+      other three faults have.
+    </p>
+    <p>
+      It was found by the <em>third</em> review pass, by a reviewer reading the raw session rollout of
+      a run this page had already written up as a success — not the summary of it. We had run that
+      same fixture four times and read its output each time without seeing it.
+    </p>
+    <p>
+      Fixed in <a href="https://github.com/chutesai/chutescode/commit/d7774ede1f7977d386bbcc3884679de422705283"><code>d7774ed</code></a>:
+      the envelope is parsed off, and — since the parser has to read it anyway — the
+      <strong>real exit code</strong> is now recovered instead of being flattened to 0/1, closing a
+      second documented gap for free. <b>Six regression tests, all passing</b>
+      (<code>cargo test -p codex-core --lib rlm_python</code>), including one that asserts a
+      read → write → read round trip accretes no header.
+    </p>
+    <p class="fineprint">
+      The flattened exit code had a visible cost in the same run: a <em>test failure</em> surfaced as
+      <code>HostError: shell: Exit code: 1</code>, and from that point on the model abandoned the
+      host-call API and ran pytest and git through <code>import subprocess</code> instead. Worth
+      recording, because <code>subprocess</code> from inside the kernel bypasses the approval path
+      that the host-call design exists to preserve. (That run was
+      <code>danger-full-access</code>, so nothing was violated.)
+    </p>
+  </div>
+
+  <div class="callout callout-warn">
     <div class="finding-tag">a third infrastructure bug, found by running the product</div>
     <h4>The workspace was shadowing the Python standard library</h4>
     <p>
@@ -794,10 +901,36 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
       path doing its job, and it is the reason the failure took minutes rather than a session.
     </p>
     <p class="fineprint">
-      That makes three infrastructure faults found on the way, all of which would have corrupted a
-      benchmark rather than failing loudly: the
+      That makes <b>four</b> infrastructure faults found on the way, all of which would have
+      corrupted a benchmark rather than failing loudly: the
       <a href="#results">responses-proxy multi-turn bug</a>, the bench-runner's 15-day silent
-      deadlock, and this one. Two were found by building; this one was found by <em>using</em>.
+      deadlock, the file-shim corruption above, and this one. Two were found by building, one by
+      <em>using</em>, and one by <em>reviewing</em> a run already recorded as a success.
+    </p>
+  </div>
+
+  <div class="callout">
+    <h4>Artefact honesty: what this run left behind, and what it did not</h4>
+    <p>
+      <code>bench/binary_ab.sh</code> wrote its output to a fixed directory and truncated it on every
+      invocation. <code>docs/RESULTS.md</code> §3.7b cites five attempts;
+      <strong><code>reports/binary_ab/</code> holds exactly one of them</strong> — the last, whose
+      RLM arm hit a provider 403. <strong>The run described above is not the one in that
+      directory.</strong> It is auditable only from a session rollout that lives outside the
+      repository, named in <code>data/binary_run.json</code>'s <code>source_files</code>, which is
+      where every cell above was read from.
+    </p>
+    <p>
+      Fixed: the script now writes one timestamped directory per invocation, so nothing overwrites
+      anything. This is the same artefact-retention mistake that lost <code>recall-5</code>'s
+      per-trial records during the A/B — made twice, in two different scripts, which is why it is on
+      the page rather than in a commit message.
+    </p>
+    <p class="fineprint">
+      The infra-failure rule was narrowed in the same commit. It used to grep the whole run for
+      <code>403</code>/<code>429</code>, including <em>the agent's own words</em> — an agent that
+      merely discussed a 429 could have talked itself into an <code>infra-failed</code> verdict. It
+      now counts only errors the runtime itself reported.
     </p>
   </div>
 
