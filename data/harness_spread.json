@@ -1,0 +1,40 @@
+{
+  "$comment": "The three published Terminal-Bench 2.1 scores for one model, Kimi K3. Every entry carries its own primary source. Two of the three are also present verbatim in data/public_scores.json; the Vals AI row is not, and says so.",
+  "benchmark": "Terminal-Bench 2.1",
+  "model": "Kimi K3",
+  "axis": { "min": 78, "max": 90 },
+  "entries": [
+    {
+      "score": 88.3,
+      "harness": "KimiCode",
+      "evaluator": "Moonshot AI (the lab that made the model)",
+      "evaluator_short": "Moonshot",
+      "source_type": "lab self-reported",
+      "source_url": "https://huggingface.co/moonshotai/Kimi-K3",
+      "in_public_scores": true,
+      "note": "Moonshot's own model card, max reasoning effort, temperature 1.0."
+    },
+    {
+      "score": 85.02,
+      "harness": "Terminus 2",
+      "evaluator": "Artificial Analysis",
+      "evaluator_short": "Artificial Analysis",
+      "source_type": "third-party verified",
+      "source_url": "https://artificialanalysis.ai/evaluations/terminalbench-v2-1",
+      "in_public_scores": true,
+      "note": "AA's independent run, Terminus 2 in an e2b sandbox. Transcribed from the AA v2 API on 2026-08-06."
+    },
+    {
+      "score": 80.9,
+      "harness": "Terminus 2",
+      "evaluator": "Vals AI",
+      "evaluator_short": "Vals AI",
+      "source_type": "third-party verified",
+      "source_url": "https://www.vals.ai/benchmarks/terminal-bench-2-1",
+      "in_public_scores": false,
+      "note": "Vals AI's independent run, also on the Terminus 2 harness. This row is NOT in data/public_scores.json — that dataset was compiled from the Artificial Analysis API and the two lab model cards only. Verified directly against the Vals AI leaderboard on 2026-08-06, where Kimi K3 places 3rd at 80.90%."
+    }
+  ],
+  "spread": 7.4,
+  "spread_note": "88.3 − 80.90 = 7.4 points. Same model, same benchmark version, same task set. The only thing that changed is who ran it and what harness they wrapped the model in. Two of the three runs even used the same harness (Terminus 2) and still differ by 4.1 points."
+}

@@ -1,0 +1,19 @@
+# Render blueprint — static site, free plan.
+# The service is also creatable straight from the dashboard; this file documents
+# the exact settings. Publish path is the repo root because there is no build step.
+services:
+  - type: web
+    runtime: static
+    name: chutescoder-web
+    plan: free
+    branch: main
+    buildCommand: echo "static site, no build step"
+    staticPublishPath: .
+    autoDeploy: true
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin

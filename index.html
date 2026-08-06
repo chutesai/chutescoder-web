@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>chutescoder — a coding harness that treats context as a variable</title>
+<meta name="description" content="chutescoder is a Chutes-owned fork of OpenAI Codex rebuilt around programmatic tool calling: one python tool, a persistent IPython kernel, and the conversation itself as a variable. Benchmarked against the harness it replaces.">
+<meta property="og:title" content="chutescoder — a coding harness that treats context as a variable">
+<meta property="og:description" content="Same model, same benchmark, 7.4 points of spread from the harness alone. So Chutes built one.">
+<meta property="og:type" content="article">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⌘</text></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="#top">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">chutes<b>coder</b></span>
+    </a>
+    <nav class="topnav" aria-label="Sections">
+      <a href="#why">Why</a>
+      <a href="#what">What it does</a>
+      <a href="#how">How it's built</a>
+      <a href="#results">Results</a>
+      <a href="#published">Published scores</a>
+    </nav>
+    <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle colour theme">
+      <span class="t-sun" aria-hidden="true">☀</span><span class="t-moon" aria-hidden="true">☾</span>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ─────────────────────────── STATUS BANNER ─────────────────────────── -->
+<div class="wrap">
+  <aside class="banner" role="status" id="status-banner">
+    <span class="banner-pill">Measurements in progress</span>
+    <p>
+      <strong>No chutescoder benchmark number exists yet.</strong> The harness is built and
+      tested; the A/B runs against vanilla Codex have not been scored. Every number on this
+      page is a <em>published</em> figure for the two models under test, transcribed from a
+      named source and linked. The
+      <a href="#results">results table</a> lists exactly which cells are still empty.
+      Nothing on this page is estimated, projected or placeholder.
+    </p>
+  </aside>
+</div>
+
+<!-- ─────────────────────────────── HERO ─────────────────────────────── -->
+<section class="hero wrap" id="top">
+  <p class="eyebrow">Chutes engineering &middot; 2026-08-06</p>
+  <h1>A coding harness that treats <span class="hl-grad">context as a variable</span></h1>
+  <p class="lede">
+    <b>chutescoder</b> is a Chutes-owned fork of <a href="https://github.com/openai/codex">OpenAI's Codex</a>
+    with a second agent architecture bolted alongside the original one. In RLM mode the model gets
+    exactly one tool — <code>python</code> — running in a persistent IPython kernel that lives for the
+    whole session. Shell, file edits, patches, search, MCP and sub-agents all become ordinary Python
+    functions inside that kernel. Ten tool calls collapse into one cell; a 50k-row result stays
+    addressable as <code>out[7]</code> instead of flooding the context window; and the transcript
+    itself becomes <code>ctx</code>, greppable even for the turns compaction already threw away.
+    Turn the flag off and you have upstream Codex, byte for byte — which is what makes the
+    benchmark honest.
+  </p>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="https://github.com/chutesai/chutescode">The fork on GitHub</a>
+    <a class="btn" href="#results">Benchmark status</a>
+  </div>
+  <dl class="hero-stats">
+    <div><dt>Tools visible to the model</dt><dd>1</dd></div>
+    <div><dt>Kernel lifetime</dt><dd>whole session</dd></div>
+    <div><dt>Survives compaction</dt><dd>yes</dd></div>
+    <div><dt>Binaries in the A/B</dt><dd>1</dd></div>
+  </dl>
+</section>
+
+<!-- ──────────────────────────── WHY ─────────────────────────────────── -->
+<section class="wrap section" id="why">
+  <p class="kicker">01 — the evidence</p>
+  <h2>Why a new harness</h2>
+  <p class="prose">
+    The argument for owning a harness does not depend on anything we have measured. It is already
+    sitting in the public record. Here is <b>one model</b> — Kimi K3 — on <b>one benchmark</b> —
+    Terminal-Bench 2.1 — scored three times by three different organisations.
+  </p>
+
+  <figure class="chart-card">
+    <figcaption class="chart-head">
+      <h3>Kimi K3 on Terminal-Bench 2.1, by who ran it</h3>
+      <p>Each dot is a published score for the same model on the same benchmark version. Hover or tap a row for the source.</p>
+    </figcaption>
+    <div id="spread-chart" class="chart-body"><p class="loading">Loading chart…</p></div>
+    <div class="chart-foot" id="spread-foot"></div>
+  </figure>
+
+  <div class="callout">
+    <p>
+      <strong>7.4 points of spread from the harness alone.</strong> That is larger than the gap between
+      many adjacent model releases — and two of those three runs used the <em>same</em> harness
+      (Terminus 2) and still differ by 4.1 points. An agentic benchmark does not score a model. It
+      scores a <em>system</em>: model plus scaffold plus retries plus context management. Whoever
+      controls the scaffold controls several points of the result.
+    </p>
+    <p>
+      The gap is systematic, not noise. Across both models we track, the lab's own harness beats the
+      independent one by a similar margin:
+    </p>
+    <table class="mini-table">
+      <thead><tr><th>Model</th><th>Lab harness</th><th>AA harness</th><th>Gap</th></tr></thead>
+      <tbody>
+        <tr><td>Kimi K3</td><td>88.3 <span class="dim">(KimiCode)</span></td><td>85.02</td><td class="neg">−3.3</td></tr>
+        <tr><td>GLM-5.2</td><td>81.0 <span class="dim">(Terminus-2)</span></td><td>77.90</td><td class="neg">−3.1</td></tr>
+      </tbody>
+    </table>
+    <p class="fineprint">
+      Sources: <a href="https://huggingface.co/moonshotai/Kimi-K3">Moonshot model card</a>,
+      <a href="https://huggingface.co/zai-org/GLM-5.2">Z.ai model card</a>,
+      <a href="https://artificialanalysis.ai/evaluations/terminalbench-v2-1">Artificial Analysis</a>.
+      All four figures are records in <a href="#published">the published-scores table</a> below.
+    </p>
+  </div>
+
+  <p class="prose">
+    On 2026-08-05 Prime Intellect published <a href="https://www.primeintellect.ai/blog/prime-agent">Prime Agent</a>,
+    a coding harness whose central claim is exactly this — that the harness matters as much as the
+    model, and that the gains are not benchmark-specific. We found that plausible before testing
+    anything, because the table above already says so. So: if the harness is worth seven points,
+    Chutes should own one — and then measure it honestly rather than assert it.
+  </p>
+</section>
+
+<!-- ──────────────────────────── WHAT ────────────────────────────────── -->
+<section class="wrap section" id="what">
+  <p class="kicker">02 — the design</p>
+  <h2>What chutescoder does</h2>
+  <p class="prose">
+    Four ideas, all of them consequences of the same move: stop describing capabilities to the model
+    as tool schemas, and start handing it a programming language with those capabilities already in
+    scope. Below is what the model actually sees.
+  </p>
+
+  <div class="idea-grid">
+
+    <article class="idea">
+      <div class="idea-num">i</div>
+      <h3>One tool. The rest are functions.</h3>
+      <p>
+        The model's tool list has exactly one entry, <code>python</code>. Every host capability —
+        shell, patches, file IO, ripgrep, web search, MCP — is a Python name in the kernel namespace.
+        Reading twelve files is a <code>for</code> loop, not twelve round trips, and the filtering
+        happens <em>before</em> anything reaches the context window.
+      </p>
+      <pre class="code" data-lang="python"><code>files = [p for p in list_dir("src", depth=3) if p.endswith(".py")]
+srcs  = {p: read_file(p) for p in files}
+suspects = {p: s for p, s in srcs.items() if "eval(" in s or "exec(" in s}
+
+print(len(files), "files;", len(suspects), "suspects:", list(suspects))
+# 812 files; 3 suspects: ['src/plugins/loader.py', ...]</code></pre>
+      <p class="idea-foot">
+        812 files were read. Three lines of output were spent. The other 809 files are still sitting
+        in <code>srcs</code>, addressable, costing nothing.
+      </p>
+    </article>
+
+    <article class="idea">
+      <div class="idea-num">ii</div>
+      <h3><code>ctx</code> — the transcript, as data</h3>
+      <p>
+        The host pushes the whole conversation into the kernel as <code>ctx</code>. Because the kernel
+        is never restarted, <code>ctx</code> keeps the turns that compaction summarised away. When the
+        model half-remembers an error from 200 turns ago, it does not guess and it does not re-derive.
+        It greps.
+      </p>
+      <pre class="code" data-lang="python"><code>len(ctx)                     # every turn, including ones no longer in the window
+ctx.grep("TimeoutError")     # [(turn_index, line), ...] across the whole session
+ctx.dropped                  # turns evicted by compaction — still fully readable here
+ctx.slice(100, 140).text()
+ctx[42].content</code></pre>
+      <p class="idea-foot">
+        Compaction stops being amnesia and becomes an index. The same mechanism caps cell output: a
+        cell returning 12,000 rows shows the model
+        <code>&lt;list of 12043 dicts — full value kept in out[7]&gt;</code> and a head/tail excerpt.
+        The rows stay in the kernel.
+      </p>
+    </article>
+
+    <article class="idea">
+      <div class="idea-num">iii</div>
+      <h3>Delegation is a function call</h3>
+      <p>
+        <code>await rlm(...)</code> spawns a sub-agent with its own model, its own kernel and its own
+        context window. It reads 200k tokens; the parent gets back a paragraph. When the work is
+        independent, fan out — the kernel runs cells under IPython's autoawait, so concurrent host
+        calls really are concurrent.
+      </p>
+      <pre class="code" data-lang="python"><code>answer = await rlm("Read src/auth/** and explain how sessions are validated")
+
+# fan out over independent work
+findings = await rlm.map([f"Audit {m} for SQL injection" for m in modules],
+                         concurrency=6)
+
+# or keep the handles, and steer a child mid-flight
+handles = [await rlm.spawn(f"Audit {m}") for m in modules]
+await agent_message.send("skip the vendored deps",
+                         receiver_name=handles[0].session_name)</code></pre>
+      <p class="idea-foot">
+        A sub-agent is the cheapest way to look at something large: you pay for the summary, not for
+        the reading.
+      </p>
+    </article>
+
+    <article class="idea">
+      <div class="idea-num">iv</div>
+      <h3>The harness edits itself</h3>
+      <p>
+        <code>rlm.harness</code> is the state that shapes the agent — prompt notes, sub-agent
+        definitions, skills, memories. The agent can change it mid-task; the change lands in the
+        system prompt on the <em>next</em> turn and persists across sessions. Write a memory the
+        moment you learn something that cost you time. Write a skill once you have done the same
+        multi-step thing twice.
+      </p>
+      <pre class="code" data-lang="python"><code>rlm.harness.create_memory("flaky-network-test",
+    "tests/net/test_retry.py fails ~1 in 5 on first run; re-run before investigating")
+
+rlm.harness.create_skill("release",
+    description="cut a release of this repo",
+    body="1. bump version in Cargo.toml\n2. cargo test --all\n3. git tag -s v$VERSION")
+
+rlm.harness.list("skill")             # name + description of every skill
+rlm.harness.read("skill", "release")  # load the body only when you need it</code></pre>
+      <p class="idea-foot">
+        Listings are cheap and always in the prompt; bodies are loaded on demand. That is what keeps a
+        growing skill library from eating the context window it was meant to save.
+      </p>
+    </article>
+
+  </div>
+</section>
+
+<!-- ──────────────────────────── HOW ─────────────────────────────────── -->
+<section class="wrap section" id="how">
+  <p class="kicker">03 — the implementation</p>
+  <h2>How it's built</h2>
+  <p class="prose">
+    The guiding principle was <em>add a runtime, don't replace the agent</em>. chutescoder does not
+    fork Codex's turn loop, its sandbox or its tool registry. It adds a Python sidecar beside the
+    existing runtime and routes every capability back through the tools Codex already had — so the
+    approval policy, the execpolicy sandbox and the audit trail are unchanged.
+  </p>
+
+  <figure class="diagram-card">
+    <div class="diagram-scroll">
+      <svg viewBox="0 0 980 520" role="img" aria-labelledby="diagtitle diagdesc" class="diagram">
+        <title id="diagtitle">chutescoder RLM architecture</title>
+        <desc id="diagdesc">The model calls a single python tool. The Rust host forwards the code to a
+        persistent IPython sidecar over newline-delimited JSON. When the model's code calls a host
+        function, the sidecar emits a host_call that the Rust host dispatches through Codex's existing
+        tool registry, so the sandbox and approval policy are unchanged, and returns a host_reply.</desc>
+
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-arrowhead"/>
+          </marker>
+          <marker id="ah-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-arrowhead-accent"/>
+          </marker>
+        </defs>
+
+        <text x="16" y="24" class="d-lane">model-facing</text>
+        <line x1="16" y1="34" x2="964" y2="34" class="d-lane-rule"/>
+
+        <!-- row 1 -->
+        <g class="d-node d-node-model">
+          <rect x="16" y="54" width="196" height="100" rx="12"/>
+          <text x="114" y="86" class="d-title">Model</text>
+          <text x="114" y="108" class="d-sub">Kimi K3 / GLM-5.2</text>
+          <text x="114" y="128" class="d-sub d-em">one visible tool: python</text>
+        </g>
+        <path d="M 216 104 L 246 104" class="d-edge" marker-end="url(#ah)"/>
+
+        <g class="d-node">
+          <rect x="252" y="54" width="196" height="100" rx="12"/>
+          <text x="350" y="86" class="d-title">python tool</text>
+          <text x="350" y="108" class="d-sub">RlmPythonHandler (Rust)</text>
+          <text x="350" y="128" class="d-sub">exposure: Direct</text>
+        </g>
+        <path d="M 452 104 L 482 104" class="d-edge" marker-end="url(#ah)"/>
+
+        <g class="d-node">
+          <rect x="488" y="54" width="196" height="100" rx="12"/>
+          <text x="586" y="86" class="d-title">kernel supervisor</text>
+          <text x="586" y="108" class="d-sub">RlmKernel — lifecycle,</text>
+          <text x="586" y="128" class="d-sub">codec, call table</text>
+        </g>
+        <path d="M 688 104 L 718 104" class="d-edge" marker-end="url(#ah)"/>
+
+        <g class="d-node d-node-kernel">
+          <rect x="724" y="54" width="240" height="100" rx="12"/>
+          <text x="844" y="86" class="d-title">IPython sidecar</text>
+          <text x="844" y="108" class="d-sub">persistent for the session</text>
+          <text x="844" y="128" class="d-sub d-em">ctx · out[] · rlm · harness</text>
+        </g>
+
+        <!-- process boundary + wire caption -->
+        <line x1="706" y1="44" x2="706" y2="190" class="d-brace" stroke-dasharray="4 4"/>
+        <text x="586" y="182" class="d-edgelabel">execute · result · stream — NDJSON over stdin/stdout</text>
+
+        <!-- host_call / host_reply loop -->
+        <path d="M 800 158 L 800 258 L 444 258 L 444 286" class="d-edge d-edge-accent"
+              marker-end="url(#ah-accent)" marker-start="url(#ah-accent)"/>
+        <text x="622" y="248" class="d-edgelabel d-edgelabel-accent">host_call ⇄ host_reply</text>
+
+        <text x="16" y="336" class="d-lane">unchanged from Codex</text>
+
+        <!-- row 2 -->
+        <g class="d-node d-node-host">
+          <rect x="270" y="290" width="380" height="114" rx="12"/>
+          <text x="460" y="320" class="d-title">Codex ToolRegistry</text>
+          <text x="460" y="344" class="d-sub">shell · read_file · write_file · apply_patch</text>
+          <text x="460" y="364" class="d-sub">list_dir · grep · web_search · web_fetch</text>
+          <text x="460" y="384" class="d-sub">mcp_call · llm · rlm_spawn · harness_op</text>
+        </g>
+        <path d="M 654 347 L 684 347" class="d-edge" marker-end="url(#ah)"/>
+
+        <g class="d-node d-node-host">
+          <rect x="690" y="290" width="274" height="114" rx="12"/>
+          <text x="827" y="326" class="d-title">sandbox &amp; approvals</text>
+          <text x="827" y="352" class="d-sub">execpolicy · approval policy</text>
+          <text x="827" y="372" class="d-sub">audit trail — byte for byte</text>
+        </g>
+
+        <!-- flag note -->
+        <g class="d-note">
+          <rect x="16" y="424" width="948" height="80" rx="10"/>
+          <text x="36" y="450" class="d-sub d-note-text">RLM mode is a feature flag. Off → nothing is registered and chutescoder behaves exactly like upstream Codex.</text>
+          <text x="36" y="470" class="d-sub d-note-text">On → the python tool is Direct and every other tool is demoted to CodeModeOnly, still callable, just invisible.</text>
+          <text x="36" y="490" class="d-sub d-note-text">One binary, one flag, two harnesses — which is the only reason the A/B below can be called an A/B.</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption class="diagram-cap">
+      The single <code>python</code> tool is the model's whole surface. Everything the model's code
+      calls comes back through Codex's own tool registry as a <code>host_call</code>, so the sandbox
+      and approval prompts are identical in both arms.
+      <a href="https://github.com/chutesai/chutescode/tree/main/codex-rs/chutes-rlm">Crate source &amp; protocol →</a>
+    </figcaption>
+  </figure>
+
+  <div class="fact-grid">
+    <div class="fact">
+      <h4>A fork, not a rewrite</h4>
+      <p>chutescoder is a fork of <a href="https://github.com/openai/codex">openai/codex</a> (Apache-2.0),
+      published at <a href="https://github.com/chutesai/chutescode">chutesai/chutescode</a>. The RLM
+      harness is a new crate, <code>codex-chutes-rlm</code>, sitting next to the existing ones.</p>
+    </div>
+    <div class="fact">
+      <h4><code>apply_patch</code> stays visible</h4>
+      <p>Even in RLM mode. Models are heavily trained on its freeform format, and forcing it through a
+      Python string literal costs accuracy for nothing. Purity is not a goal here; scores are.</p>
+    </div>
+    <div class="fact">
+      <h4>State survives restarts</h4>
+      <p>The namespace is snapshotted per-variable with <code>dill</code>. On reboot the model is told
+      what came back and what didn't, rather than silently losing a variable it is still reasoning about.</p>
+    </div>
+    <div class="fact">
+      <h4>Tested before it was believed</h4>
+      <p>33 Python checks drive the real kernel against a mock host; 43 Rust tests cover the protocol,
+      kernel supervisor and continual harness, 12 of them against the live sidecar.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────────────── RESULTS ─────────────────────────────── -->
+<section class="wrap section" id="results">
+  <p class="kicker">04 — the experiment</p>
+  <h2>Benchmark results</h2>
+
+  <div class="pending-hero" id="results-status"></div>
+
+  <p class="prose">
+    The model is the control; the harness is the independent variable. Arms B and C run the same
+    binary lineage, the same model endpoint, the same sandbox (Sandy), the same task set, the same
+    seed and the same wall-clock and step budget. The only difference is the tool surface and the
+    prompt that describes it. Arm A exists to check that our pipeline reproduces the published
+    numbers at all — if it doesn't, our absolute scale is internal-only and we will say so.
+  </p>
+
+  <div class="arm-legend" id="arm-legend"></div>
+
+  <div id="results-tables"><p class="loading">Loading results…</p></div>
+
+  <details class="details">
+    <summary>What we record for every cell, and why an empty cell stays empty</summary>
+    <div class="details-body">
+      <ul>
+        <li>score, in the benchmark's native metric</li>
+        <li>n attempted / n in the full benchmark / subset seed</li>
+        <li>total tokens in and out, and cost — <em>a harness that wins by spending 6× the tokens has not obviously won</em></li>
+        <li>wall clock, and steps or turns used</li>
+        <li>harness commit sha, model id, and the bench-runner run id</li>
+        <li>failure taxonomy for non-passes: timeout / context exhaustion / tool error / wrong answer</li>
+      </ul>
+      <p>
+        Full runs of Terminal-Bench and SWE-Bench Pro across two models and two arms are far past the
+        available budget, so those two use a fixed random subset of at least 10% of tasks with the
+        <em>same seed across every arm</em>, making the arms paired. Any subset result is labelled
+        preliminary and is never presented as a full-benchmark score.
+      </p>
+      <p>
+        A run with more than 5% unrecovered infrastructure errors is discarded and re-run rather than
+        reported. Until a cell has a real, scored, non-discarded run behind it, it renders as
+        <span class="pill pill-pending">pending</span> — because an empty cell is correct and an
+        invented number is not.
+      </p>
+    </div>
+  </details>
+
+  <details class="details">
+    <summary>Threats to validity we are explicitly guarding against</summary>
+    <div class="details-body">
+      <table class="mini-table wide">
+        <thead><tr><th>Threat</th><th>Mitigation</th></tr></thead>
+        <tbody>
+          <tr><td>We tuned the chutescoder prompt against the eval set</td><td>Prompt frozen before the scored runs; any tuning happens on a held-out dev subset with disjoint task ids, and that fact is recorded</td></tr>
+          <tr><td>Subset luck</td><td>Same seed and same task ids across arms; paired reporting; per-task outcomes published, not just the mean</td></tr>
+          <tr><td>One harness quietly gets more budget</td><td>Identical wall-clock and step budgets, enforced by the adapter, with actual usage reported</td></tr>
+          <tr><td>Capacity 429s degrade one arm</td><td>Retries counted; &gt;5% unrecovered infra errors ⇒ discard and re-run</td></tr>
+          <tr><td>Our numbers aren't comparable to published ones</td><td>Arm A on AA-LCR is exactly this check, against 74.67 / 71.33</td></tr>
+          <tr><td>Reward hacking</td><td>Scoring is by held-out tests the agent never sees; top-scoring trajectories spot-checked by hand</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+</section>
+
+<!-- ──────────────────────── PUBLISHED SCORES ────────────────────────── -->
+<section class="wrap section" id="published">
+  <p class="kicker">05 — the baseline record</p>
+  <h2>Published scores for the two models</h2>
+  <p class="prose">
+    Everything below is transcribed from a named source. Nothing is estimated, interpolated or
+    inferred. Where a benchmark has no published number, it appears in
+    <a href="#gaps">the gaps table</a> rather than being guessed at. The dataset is
+    <a href="data/public_scores.json"><code>public_scores.json</code></a> —
+    <span id="record-count">130</span> records, machine-readable, the same file this page renders from.
+  </p>
+
+  <div class="legend-row">
+    <span class="pill pill-third">third-party verified</span>
+    <span class="legend-txt">measured by an independent evaluator on its own harness</span>
+  </div>
+  <div class="legend-row">
+    <span class="pill pill-self">lab self-reported</span>
+    <span class="legend-txt">published by the lab that made the model</span>
+  </div>
+  <div class="legend-row">
+    <span class="pill pill-comp">competitor-reported</span>
+    <span class="legend-txt">a number for model X published by a rival lab in its own launch material — rivals have an incentive to under-report and rarely tune the competitor's harness</span>
+  </div>
+
+  <div class="filters">
+    <input type="search" id="q" placeholder="Filter by benchmark…" aria-label="Filter by benchmark name">
+    <select id="f-model" aria-label="Filter by model"><option value="">All models</option></select>
+    <select id="f-type" aria-label="Filter by source type"><option value="">All source types</option></select>
+    <button id="f-reset" type="button" class="btn btn-small">Reset</button>
+    <span class="filter-count" id="filter-count"></span>
+  </div>
+
+  <div class="table-scroll table-tall">
+    <table class="scores" id="scores-table">
+      <thead>
+        <tr>
+          <th data-sort="benchmark" class="sortable">Benchmark</th>
+          <th data-sort="model" class="sortable">Model</th>
+          <th data-sort="score" class="sortable num">Score</th>
+          <th>Variant</th>
+          <th data-sort="source_type" class="sortable">Provenance</th>
+          <th>Source</th>
+        </tr>
+      </thead>
+      <tbody id="scores-body"></tbody>
+    </table>
+  </div>
+
+  <h3 id="gaps" class="sub-h">The gaps — benchmarks searched for and not found</h3>
+  <p class="prose">
+    These are gaps, not zeros. Any number circulating for these cells should be treated as fabricated
+    until traced to a primary source. Independent leaderboard coverage (swebench.com, Aider,
+    LiveCodeBench, tbench.ai, LMArena, Epoch AI, ARC Prize) was searched and yielded no confirmed
+    entries for either model.
+  </p>
+  <div class="table-scroll">
+    <table class="scores gaps-table">
+      <thead><tr><th>Benchmark</th><th>Kimi K3</th><th>GLM-5.2</th><th>Note</th></tr></thead>
+      <tbody id="gaps-body"></tbody>
+    </table>
+  </div>
+
+  <div class="callout callout-warn">
+    <h4>Two things worth stating plainly</h4>
+    <p>
+      <strong>Neither lab publishes SWE-bench Verified.</strong> It is the benchmark most people mean
+      by "coding score", and there is no entry for either model — not on the model cards, not on
+      swebench.com. Moonshot reports DeepSWE, FrontierSWE and SWE-Marathon; Z.ai reports SWE-bench Pro.
+      They do not overlap.
+    </p>
+    <p>
+      <strong>AA-LCR is the only public long-context number that exists for either model.</strong>
+      MRCR, RULER, LongBench v2, OOLONG, Fiction.LiveBench and every NIAH variant are unpublished for
+      both, despite both models shipping a 1,048,576-token context. Two models with million-token
+      windows and exactly one shared long-context datapoint between them is itself a decent argument
+      for running your own evals.
+    </p>
+    <p class="fineprint">
+      One more caveat we are keeping in view rather than hiding: AA's <code>tau2-bench</code> value for
+      GLM-5.2 (99.12%) sits far above every peer and is almost certainly not a full run. It is shown in
+      the table because it is in the source data, and flagged here because it should not be cited.
+      Similarly, MCP-Atlas for GLM-5.2 appears twice — 82.6 per Moonshot, 76.8 per Z.ai. Where a lab's
+      own card and a rival's disagree, prefer the lab's own.
+    </p>
+  </div>
+</section>
+
+<!-- ──────────────────────── ATTRIBUTION ─────────────────────────────── -->
+<section class="wrap section" id="attribution">
+  <p class="kicker">06</p>
+  <h2>Attribution</h2>
+  <div class="attr-grid">
+    <div class="attr">
+      <h4>Fork of openai/codex</h4>
+      <p>
+        chutescoder is a fork of <a href="https://github.com/openai/codex">openai/codex</a>, licensed
+        <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache-2.0</a>. Upstream copyright
+        notices and the NOTICE file are retained; modified files are marked as modified, per §4 of the
+        licence. The fork lives at
+        <a href="https://github.com/chutesai/chutescode">github.com/chutesai/chutescode</a>.
+      </p>
+    </div>
+    <div class="attr">
+      <h4>RLM design after Prime Intellect</h4>
+      <p>
+        The RLM architecture re-implements ideas published by
+        <a href="https://www.primeintellect.ai/blog/prime-agent">Prime Intellect</a> in
+        <a href="https://github.com/PrimeIntellect-ai/prime-agent">prime-agent</a> —
+        programmatic tool calling over a persistent kernel, context as a variable, sub-agents as
+        function calls, a self-editable harness. <strong>No Prime Agent code is used.</strong>
+        prime-agent is TypeScript on <code>pi</code>; this is Rust on Codex with a Python sidecar.
+        The credit for the ideas is theirs; the bugs are ours.
+      </p>
+    </div>
+    <div class="attr">
+      <h4>Benchmark data</h4>
+      <p>
+        Published scores come from the
+        <a href="https://artificialanalysis.ai/">Artificial Analysis</a> v2 API,
+        the <a href="https://huggingface.co/moonshotai/Kimi-K3">Moonshot Kimi K3 card</a>,
+        the <a href="https://huggingface.co/zai-org/GLM-5.2">Z.ai GLM-5.2 card</a> and the
+        <a href="https://www.vals.ai/benchmarks/terminal-bench-2-1">Vals AI Terminal-Bench leaderboard</a>.
+        No aggregator or SEO comparison site was used as a source for any figure on this page.
+      </p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <div>
+      <p class="footer-brand">chutes<b>coder</b></p>
+      <p class="footer-note">A Chutes engineering project. Fork of openai/codex, Apache-2.0.</p>
+    </div>
+    <nav class="footer-links" aria-label="Footer">
+      <a href="https://github.com/chutesai/chutescode">chutesai/chutescode</a>
+      <a href="https://github.com/openai/codex">openai/codex</a>
+      <a href="https://www.primeintellect.ai/blog/prime-agent">Prime Agent</a>
+      <a href="https://chutes.ai">chutes.ai</a>
+    </nav>
+  </div>
+  <div class="wrap footer-fine" id="footer-fine"></div>
+</footer>
+
+<div id="src-pop" class="src-pop" role="dialog" aria-live="polite" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
