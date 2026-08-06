@@ -26,6 +26,7 @@
       <a href="#what">What it does</a>
       <a href="#how">How it's built</a>
       <a href="#ab">Retraction</a>
+      <a href="#e2e">What runs</a>
       <a href="#results">Benchmarks</a>
       <a href="#published">Scores</a>
     </nav>
@@ -40,16 +41,22 @@
 <!-- ─────────────────────────── STATUS BANNER ─────────────────────────── -->
 <div class="wrap">
   <aside class="banner banner-retract" role="status" id="status-banner">
-    <span class="banner-pill">Results retracted &middot; 2026-08-06</span>
+    <span class="banner-pill">Three rounds of review &middot; 2026-08-06</span>
     <p>
-      <strong>The measured comparison this page carried has been withdrawn.</strong> A second-agent
-      review found that the headline accuracy result was contaminated by files our own harness left
-      in <code>/tmp</code>, and that the baseline arm was given a materially weaker prompt — so
-      "the only variable is the tool interface" was not true.
-      <a href="#ab">The full retraction is section 04</a>, numbers removed rather than hedged, with a
-      clean re-run in progress. The standard benchmarks have
-      <a href="#results">never been run</a>, and GLM-5.2 could not be run at all. What remains
-      measured is <a href="#e2e">one end-to-end run</a>, n = 1, labelled as such.
+      <strong>The experiment supports no performance claim, in either direction.</strong> The first
+      pass said the harness wins; that rested on files our own script left in <code>/tmp</code> and
+      on a baseline given a 232-byte prompt against 5,438. The clean re-run said the harness loses;
+      roughly half to <em>all</em> of that gap is system-prompt length rather than mechanism. And the
+      one cell with a mechanism the baseline lacks <strong>never fired</strong> — the baseline's own
+      summaries kept the target fact in 5 of 5 trials.
+      <a href="#ab">Section 04 carries the whole retraction</a>, with no performance numbers in it.
+      Standard benchmarks have <a href="#results">never been run</a>; GLM-5.2 was not reachably
+      available.
+    </p>
+    <p>
+      What <em>is</em> measured, and is good news: <a href="#e2e">the real binary runs end to end</a>
+      against Kimi K3 with RLM mode on, and running it turned up a third infrastructure bug that
+      would have killed the kernel inside other people's repositories and nowhere else.
     </p>
   </aside>
 </div>
@@ -67,6 +74,9 @@
     <a href="#what">are not implemented yet</a>.) Ten tool calls collapse into one cell; a 50k-row result stays
     addressable as <code>out[7]</code> instead of flooding the context window; and the transcript
     itself becomes <code>ctx</code>, greppable even for the turns compaction already threw away.
+    (That last one is the design. In the twenty trials we recorded, the model never once reached for
+    <code>ctx</code> — <a href="#what">what we actually observed</a> was the plainer and more
+    portable property that kernel <em>variables</em> survive compaction.)
     Turn the flag off and the agent loop is upstream Codex's, unchanged — which is what is meant to
     make the benchmark honest. (Not <em>byte for byte</em>: the binary is renamed, the home directory
     moved, and the config schema gained an <code>rlm</code> table. "Behaviourally identical in the
@@ -80,7 +90,8 @@
   <dl class="hero-stats">
     <div><dt>Tools visible to the model</dt><dd>1</dd></div>
     <div><dt>Kernel lifetime</dt><dd>whole session</dd></div>
-    <div><dt>Survives compaction</dt><dd>yes</dd></div>
+    <div><dt>Kernel variables survive compaction</dt><dd>observed</dd></div>
+    <div><dt><code>ctx</code> used, in 20 recorded trials</dt><dd class="em">0</dd></div>
     <div><dt>Standard benchmarks run</dt><dd>0</dd></div>
   </dl>
 </section>
@@ -200,12 +211,28 @@ print(len(files), "files;", len(suspects), "suspects:", list(suspects))
 
     <article class="idea">
       <div class="idea-num">ii</div>
-      <h3><code>ctx</code> — the transcript, as data</h3>
+      <h3><code>ctx</code> — the transcript, as data <span class="status-chip status-no">used in 0 of our 20 trials</span></h3>
       <p>
         The host pushes the whole conversation into the kernel as <code>ctx</code>. Because the kernel
         is never restarted, <code>ctx</code> keeps the turns that compaction summarised away. When the
         model half-remembers an error from 200 turns ago, it does not guess and it does not re-derive.
-        It greps.
+        It greps. That is the design, it is implemented, and it is covered by tests.
+      </p>
+      <p>
+        <strong>It is also the one thing this project has entirely failed to demonstrate.</strong>
+        Across two passes of the compaction experiment — twenty trials, ten of them in the arm that
+        has <code>ctx</code> — the model used it <b>zero</b> times. Not one
+        <code>ctx.grep</code>, <code>ctx.slice</code> or <code>ctx[…]</code>, even though the notice
+        injected at compaction names <code>ctx.grep(...)</code> in the same turn it would be needed.
+      </p>
+      <p>
+        What the model did instead, every single time, was read back a plain kernel variable it had
+        bound before compaction — <code>print(found["CACHE_TTL_BUDGET"])</code>. So what we have
+        evidence for is <strong>variable persistence across compaction</strong>, not
+        context-as-a-variable. That is a real and useful property, and a <em>more</em> portable one,
+        because it needs no transcript mirror at all — but it is not the headline this section leads
+        with, and pretending otherwise would be the same mistake as the ones in
+        <a href="#ab">section 04</a>.
       </p>
       <pre class="code" data-lang="python"><code>len(ctx)                     # every turn, including ones no longer in the window
 ctx.grep("TimeoutError")     # [(turn_index, line), ...] across the whole session
@@ -213,7 +240,8 @@ ctx.dropped                  # turns evicted by compaction — still fully reada
 ctx.slice(100, 140).text()
 ctx[42].content</code></pre>
       <p class="idea-foot">
-        Compaction stops being amnesia and becomes an index. The same mechanism caps cell output: a
+        The intent is that compaction stops being amnesia and becomes an index — untested, per above.
+        The same mechanism caps cell output: a
         cell returning a large result shows the model a one-line descriptor of the shape
         <code>&lt;list of N dicts — full value kept in out[7]&gt;</code> plus a head/tail excerpt
         <span class="illus">illustrative</span>. The rows stay in the kernel.
@@ -408,11 +436,28 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
     </div>
     <div class="fact">
       <h4>Tested, with a caveat worth stating</h4>
-      <p>43 Rust tests cover the protocol, kernel supervisor and continual harness; 13 of them boot
-      the real Python sidecar. 35 Python checks drive the kernel against a <em>mock</em> host — and
-      several of those exercise <code>llm()</code>, <code>rlm.spawn</code> and
-      <code>agent_message</code>, which the real host does not implement. A green Python suite
-      therefore overstates what ships.</p>
+      <p><b>44</b> Rust tests cover the protocol, kernel supervisor and continual harness;
+      <b>15</b> of them boot the real Python sidecar. <b>37</b> Python checks drive the kernel
+      against a <em>mock</em> host — and several of those exercise <code>llm()</code>,
+      <code>rlm.spawn</code> and <code>agent_message</code>, which the real host does not implement.
+      A green Python suite therefore overstates what ships. (Earlier versions of this page said
+      43 / 13 / 33. Those were miscounts, caught by review.)</p>
+    </div>
+    <div class="fact">
+      <h4>CI, stated exactly</h4>
+      <p>
+        <b>Linux is green</b> — <a href="https://github.com/chutesai/chutescode/actions/runs/31061182190">run
+        31061182190</a> built <code>chutescoder</code>, ran the Rust suite in release, ran the binary
+        and uploaded it. <b>Windows has never completed</b>: the job was cancelled twice by
+        subsequent pushes (<code>cancel-in-progress</code>), so no Windows binary exists — and RLM
+        mode's file surface is POSIX-only anyway.
+      </p>
+      <p>
+        The two red checks you will see on the fork, <code>blocking-ci</code> and
+        <code>postmerge-ci</code>, are <b>inherited from upstream and cannot pass in any fork</b>:
+        they target OpenAI's self-hosted runner groups and org secrets. Said out loud rather than
+        ignored, because a repo with permanent red checks teaches people to stop reading them.
+      </p>
     </div>
   </div>
 </section>
@@ -425,26 +470,28 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
   <div class="retraction">
     <div class="retraction-head">
       <span class="pill pill-retract">Retracted 2026-08-06</span>
-      <span class="retraction-when">published earlier the same day &middot; live for about an hour</span>
+      <span class="retraction-when">three rounds of review &middot; first pass, clean re-run, and the re-run's own audit</span>
     </div>
-    <h3>Every number that was here has been taken down.</h3>
+    <h3>Three rounds of review; the experiment supports no performance claim in either direction.</h3>
     <p>
       This section carried a five-task RLM-vs-CLASSIC comparison on Kimi K3, including the only
       accuracy result the project had produced. A second-agent review
-      (<code>docs/REVIEW.md</code>, verdict <b>NOT YET</b>) found two faults in the experiment.
-      Both are real, both are ours, and together they invalidate the results — so the results are
-      gone rather than hedged.
+      (<code>docs/REVIEW.md</code>, verdict <b>NOT YET</b>) took it apart. We re-ran it cleanly.
+      The re-run was reviewed too, and <em>it</em> did not survive either — this time including the
+      one cell that had looked like a genuine mechanism.
     </p>
     <p class="retraction-rule">
-      <strong>No measurement from the first pass is reproduced anywhere on this page.</strong> The
-      withdrawn figures and the arithmetic behind the withdrawal are preserved in
-      <code>docs/REVIEW.md</code> §1 and the raw per-trial records in <code>reports/</code>. They are
-      deliberately not republished here, because a retracted number that stays in circulation is
-      barely a retraction.
+      <strong>No performance number from any pass appears anywhere on this page — not the winning
+      version, and not the losing one.</strong> A negative result taken from a broken experiment is
+      no more publishable than a positive one. The withdrawn figures and the arithmetic behind the
+      withdrawal are preserved in <code>docs/RESULTS.md</code> §3.4–3.8 and
+      <code>docs/REVIEW.md</code>, with raw per-trial records and transcripts in
+      <code>reports/</code>. They are deliberately not republished here, because a retracted number
+      that stays in circulation is barely a retraction.
     </p>
   </div>
 
-  <h3 class="sub-h">What was wrong</h3>
+  <h3 class="sub-h">Round one — what was wrong with the first pass</h3>
   <div class="fault-grid">
 
     <article class="fault">
@@ -531,6 +578,114 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
 
   </div>
 
+  <h3 class="sub-h">Rounds two and three — the clean re-run, and why it also proves nothing</h3>
+  <p class="prose">
+    The re-run fixed all of the above: n = 5 per cell, one wiped corpus root per trial, a CLASSIC
+    system prompt written with the same care as the RLM one, a symmetric post-compaction notice, a
+    de-contaminated audit task, and full transcripts saved. It produced a clean <em>negative</em>
+    headline — the harness spends more tokens and, on one task, more turns. That headline was
+    published here for a few hours. It is now withdrawn too, for three reasons found by reading the
+    transcripts the re-run finally saved.
+  </p>
+
+  <div class="fault-grid">
+
+    <article class="fault">
+      <div class="fault-num">Fault 3</div>
+      <h4>The compaction result was false, and I made the same mistake twice</h4>
+      <p>
+        The one cell with a mechanism the baseline lacks is forced compaction: summarise, delete the
+        corpus, then ask for a fact from before the summary. The write-up said the failing baseline
+        trial was a clean instance of lossy compaction, and quoted the model's own account of it:
+      </p>
+      <blockquote class="quote">
+        “the value was not preserved in my summary — only <code>CACHE_TTL_FACTOR=328</code> was
+        recorded”
+      </blockquote>
+      <p>
+        The reviewer regenerated that trial's corpus from its seed. The true value is
+        <code>CACHE_TTL_BUDGET=837</code>, and the summary the model was reading contains
+        <code>CACHE_TTL_BUDGET=837</code> <b>verbatim, in its first bullet list</b>, a few hundred
+        characters above the line it did quote. Checked mechanically across all ten trials: the
+        baseline's summary retained the target fact <b>5 times out of 5</b>.
+      </p>
+      <p>
+        <strong>So compaction was never lossy for the baseline, and the mechanism under test never
+        fired.</strong> The single failure is a within-context retrieval miss over about 2 KB that
+        was entirely inside the window — interesting, but a different phenomenon. And it is the same
+        error as the first round's: <em>taking an agent's narration of its own behaviour as evidence
+        of that behaviour.</em> Transcripts exist precisely so that cannot happen, and they were not
+        read closely enough.
+      </p>
+    </article>
+
+    <article class="fault">
+      <div class="fault-num">Fault 4</div>
+      <h4>The feature the design leads with was never exercised</h4>
+      <p>
+        Across both passes — <b>20 trials</b>, 10 of them in the arm that has it — <code>ctx</code>
+        was used <b>zero</b> times. Every recovery was a plain kernel-variable lookup, even though
+        the post-compaction notice names <code>ctx.grep(...)</code> in the same turn.
+      </p>
+      <p>
+        What the experiment demonstrates is therefore <strong>variable persistence across
+        compaction</strong> — real, useful, and more portable than <code>ctx</code>, since it needs
+        no transcript mirror. It is not what
+        <a href="#what">the design section</a> leads with, so that section now says so.
+      </p>
+    </article>
+
+    <article class="fault">
+      <div class="fault-num">Fault 5</div>
+      <h4>The negative result is partly an artefact too — of prompt length, not mechanism</h4>
+      <p>
+        The reviewer was asked to attack the pessimism as hard as the optimism, and did. On the
+        simplest task both arms did <b>byte-identical work</b> — same 2 turns, same single
+        <code>grep</code>, same matched line — and the harness arm still came out worse on the token
+        column. It could not have been the mechanism: the per-call difference matches the static
+        system-prompt length difference (~3,900 characters) almost exactly.
+      </p>
+      <table class="mini-table">
+        <thead><tr><th>task</th><th>share of the token gap explained by prompt length alone</th></tr></thead>
+        <tbody>
+          <tr><td>needle</td><td><b>~100 %</b></td></tr>
+          <tr><td>audit</td><td>~45–52 %</td></tr>
+          <tr><td>recall-40</td><td>~45–52 %</td></tr>
+        </tbody>
+      </table>
+      <p>
+        A shorter RLM prompt would erase the needle gap entirely. So the harness script's claim that
+        “the only thing that varies is how the model reaches its tools” was false in round one and is
+        <em>still</em> false — only the direction of the bias flipped. <strong>That is why no number
+        appears here in either direction.</strong>
+      </p>
+    </article>
+
+    <article class="fault">
+      <div class="fault-num">Also</div>
+      <h4>Defects in the re-run itself, recorded so nobody rediscovers them</h4>
+      <ul class="tight-list">
+        <li>One of the four tasks has <b>no transcripts file</b> — per-trial logging landed while it
+        was already in flight.</li>
+        <li>For the compaction task only post-compaction messages were saved, because compaction
+        <em>replaces</em> the message list. Phase&nbsp;1 — the part that matters — is unauditable.
+        Snapshot before compacting.</li>
+        <li>Two of five harness-arm summaries contain raw <code>&lt;|open|&gt;tools&lt;|sep|&gt;</code>
+        control tokens leaking into the summary text.</li>
+        <li>Corpora sat under a shared <code>/tmp</code> parent with ~2,400 decoy files two levels
+        up. The reviewer verified no arm in any of the 20 trials reached them — but isolation should
+        be structural, not empirical.</li>
+      </ul>
+      <p class="fineprint">
+        One thing that ran <em>against</em> the harness and is worth stating because it is the more
+        favourable reading: the harness arm was handed a lossy summary in 4 of 5 compaction trials
+        and recovered every time, while the baseline was handed the answer in 5 of 5 and still missed
+        once. It is n = 5 and post-hoc, so it is not promoted to a finding.
+      </p>
+    </article>
+
+  </div>
+
   <div class="callout callout-uncomfortable">
     <div class="finding-tag">what survives — as an argument, not as evidence</div>
     <h4><code>shell</code> is already a programmatic escape hatch</h4>
@@ -559,23 +714,29 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
   </div>
 
   <div class="callout">
-    <h4>What happens next</h4>
+    <h4>Where this leaves the experiment</h4>
     <p>
-      A clean re-run is in progress. It changes four things: <b>n = 5</b> trials per cell; an
-      <b>isolated corpus root per trial</b> so nothing survives between runs; a <b>CLASSIC system
-      prompt written with comparable care</b> and a <b>symmetric post-compaction notice</b>, so the
-      arms differ in tool interface and not in coaching; and a <b>de-contaminated audit task</b>
-      whose answer does not appear in either prompt.
+      <strong>In-window tasks:</strong> the harness spends more tokens, and between roughly half and
+      all of that is prompt length rather than mechanism. On one task it also used more turns, which
+      prompt length does not explain. <b>No in-window advantage shown.</b>
+      &nbsp;·&nbsp; <strong>Compaction:</strong> untested — the mechanism never fired.
+      &nbsp;·&nbsp; <strong><code>ctx</code>:</strong> unexercised in 20 trials.
+      &nbsp;·&nbsp; <strong>Variable persistence:</strong> exercised, and it worked.
     </p>
     <p>
-      <strong>A null result is an acceptable outcome and will be published as one.</strong> If the
-      clean re-run shows no difference, that is what this section will say. Nothing will be
-      republished here until it comes from that run.
+      What would actually settle it: an RLM prompt trimmed to the baseline's length so the token
+      column measures the mechanism; a compaction task whose summariser demonstrably <em>loses</em>
+      the target fact; a pre-compaction snapshot of the message list so phase one is auditable; and
+      the product comparison — <a href="#results">the same binary with one flag flipped</a>, on real
+      benchmarks — which is still the experiment this project set out to run and has not run.
+    </p>
+    <p>
+      <strong>A null result was an acceptable outcome and this is one, twice over.</strong> Nothing
+      will be republished here until it comes from a run that survives its own review.
     </p>
     <p class="fineprint">
-      Full review, including the findings not summarised above:
-      <code>docs/REVIEW.md</code>. Current state of what is and is not measured:
-      <code>docs/RESULTS.md</code> §3.
+      Full reviews, both passes: <code>docs/REVIEW.md</code>. Current state of what is and is not
+      measured: <code>docs/RESULTS.md</code> §3.6–3.8 and §6.
     </p>
   </div>
 </section>
@@ -583,7 +744,63 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
 <!-- ──────────────────────── END-TO-END RUN ──────────────────────────── -->
 <section class="wrap section" id="e2e">
   <p class="kicker">05 — measured</p>
-  <h2>One end-to-end run</h2>
+  <h2>What actually runs</h2>
+  <p class="prose">
+    Two runs, each <b>n = 1</b>, each labelled as such. The first is the shipped binary doing a real
+    task with the flag on — the thing that has to work before any benchmark means anything. The
+    second is the hand-written driver that de-risked the Rust integration weeks earlier. Neither is
+    a measurement of whether the harness helps; <a href="#ab">section 04</a> is about that, and its
+    answer is “we don't know”.
+  </p>
+
+  <h3 class="sub-h">The real binary, end to end</h3>
+  <p class="prose" id="bin-question"></p>
+  <dl class="hero-stats" id="bin-stats"></dl>
+  <h4 class="sub-h" style="font-size:16px;margin-top:34px">The run, cell by cell</h4>
+  <ol class="timeline" id="bin-timeline"></ol>
+  <div class="fact-grid">
+    <div class="fact"><h4>What this does prove</h4><p id="bin-proves"></p></div>
+    <div class="fact"><h4>What it does not</h4><p id="bin-not"></p></div>
+  </div>
+
+  <div class="callout callout-warn">
+    <div class="finding-tag">a third infrastructure bug, found by running the product</div>
+    <h4>The workspace was shadowing the Python standard library</h4>
+    <p>
+      The very first run of the real binary happened in a directory that contained a stray
+      <code>inspect.py</code>. The kernel never booted. Cause: <code>python -m</code> prepends the
+      current directory to <code>sys.path</code>, so that file shadowed the stdlib module that
+      <code>dataclasses</code> imports.
+    </p>
+    <p>
+      <strong>This is not an edge case for a coding agent.</strong> A coding agent works inside other
+      people's repositories, and those are full of files called <code>types.py</code>,
+      <code>parser.py</code>, <code>token.py</code>, <code>code.py</code>. Any one of them would have
+      taken the kernel down <em>on that repo and nowhere else</em> — the worst shape a bug can have,
+      because it looks like the model being flaky.
+    </p>
+    <p>
+      Fixed in <a href="https://github.com/chutesai/chutescode/commit/2bdddc6c12e2cf3c6fbf8dbcee0660eb7550596c"><code>2bdddc6</code></a>:
+      the kernel now starts <em>in</em> the workspace via <code>current_dir</code>, so relative paths
+      in a cell mean what the model expects, and <code>PYTHONSAFEPATH</code> keeps that directory off
+      <code>sys.path</code>. The regression test plants <code>inspect.py</code>,
+      <code>types.py</code> and <code>token.py</code> in the workspace and was <b>verified to fail
+      without the fix</b>, not merely assumed to.
+    </p>
+    <p>
+      One detail worth keeping: <strong>the model diagnosed it unaided</strong>, from the traceback
+      the harness surfaces — it named the shadowing file and offered three fixes. That is the error
+      path doing its job, and it is the reason the failure took minutes rather than a session.
+    </p>
+    <p class="fineprint">
+      That makes three infrastructure faults found on the way, all of which would have corrupted a
+      benchmark rather than failing loudly: the
+      <a href="#results">responses-proxy multi-turn bug</a>, the bench-runner's 15-day silent
+      deadlock, and this one. Two were found by building; this one was found by <em>using</em>.
+    </p>
+  </div>
+
+  <h3 class="sub-h">Before the Rust integration: the same kernel, driven by hand</h3>
   <p class="prose" id="e2e-question"></p>
 
   <dl class="hero-stats" id="e2e-stats"></dl>
@@ -623,9 +840,12 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
 
   <p class="prose">
     This is the experiment the project set out to run, and it is <strong>the one that has not been
-    run</strong>. The <a href="#ab">A/B above</a> is a controlled proxy for the mechanism; this is
-    the product comparison, and it needs the built binary driven through Sandy against real
-    benchmarks. The adapters exist in the (now repaired) bench-runner. The runs do not.
+    run</strong>. The <a href="#ab">A/B above</a> is a controlled proxy for the mechanism inside a
+    driver we wrote; this is the product comparison — the same binary with one flag flipped, driven
+    through Sandy against real benchmarks. The binary now exists and
+    <a href="#e2e">has been run in both flag positions on one fixture task</a>, which is a smoke
+    test and not a benchmark. The adapters exist in the (now repaired) bench-runner. The scored runs
+    do not.
   </p>
 
   <div class="pending-hero" id="results-status"></div>

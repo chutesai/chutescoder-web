@@ -12,7 +12,9 @@ web/
   build_data.py               regenerates availability.json (+ ab_harness.json, opt-in)
   data/
     availability.json     ←   GENERATED. Per-model probe success rate.
-    smoke_run.json        ←   the end-to-end Kimi K3 run (hand-transcribed)
+    binary_run.json       ←   the real chutescoder binary, RLM mode on (hand-transcribed)
+    smoke_run.json        ←   the pre-integration driver run on Kimi K3 (hand-transcribed)
+    ab_harness.json       ←   TOMBSTONE ONLY. No measurements. Not rendered.
     results.json          ←   the standard-benchmark grid. Still empty on purpose.
     public_scores.json    ←   the 130 published scores for Kimi K3 / GLM-5.2
     harness_spread.json   ←   the three Terminal-Bench 2.1 runs in the hero chart
@@ -32,10 +34,12 @@ renders as `pending`. That is the intended state until real runs land.
 
 ---
 
-## The A/B is retracted — read this before restoring it
+## The A/B is retracted — twice. Read this before restoring it
 
-**2026-08-06.** The first A/B pass was withdrawn after a second-agent review
-(`docs/REVIEW.md`, verdict NOT YET) found two faults:
+**2026-08-06.** Three rounds of review. **The experiment supports no performance
+claim in either direction**, and the page must not assert one.
+
+**Round one** — headline "the harness wins" — withdrawn for two faults:
 
 1. `bench/ab_harness.py` never cleaned `/tmp` between runs, so the compaction
    task ran with ~480 leftover same-named files from earlier tasks on disk. The
@@ -46,24 +50,49 @@ renders as `pending`. That is the intended state until real runs land.
    232 bytes and was not told compaction had happened. "The only variable is the
    tool interface" was false.
 
+**Rounds two and three** — the clean re-run, headline "the harness loses" —
+also withdrawn, for three more:
+
+3. The compaction result was **false**. The write-up quoted the failing
+   baseline trial's own explanation ("the value was not preserved in my
+   summary") as evidence. The reviewer regenerated the corpus: that summary
+   contains `CACHE_TTL_BUDGET=837` verbatim, in its first bullet list. Across
+   all ten trials the baseline's summary retained the target fact **5/5**. The
+   mechanism under test never fired, so `recall-40` supports nothing. Same
+   error as round one: believing an agent's narration of its own behaviour.
+4. **`ctx` was used in 0 of 20 trials.** Every recovery was a plain
+   kernel-variable lookup. What is demonstrated is *variable persistence across
+   compaction* — real, useful, more portable — not context-as-a-variable.
+5. The negative result is **partly an artefact of prompt length**. On `needle`
+   both arms did byte-identical work and RLM still used 2.3× the tokens; 100 %
+   of that gap is system-prompt length, ~45–52 % on audit and recall.
+
 Consequences for this folder:
 
-- **`data/ab_harness.json` is not shipped.** It is deleted, and `build_data.py`
-  only writes it under an explicit `--emit-ab` flag.
+- **`data/ab_harness.json` ships as a tombstone only** — retraction text, no
+  measurements. `build_data.py` writes the real one only under `--emit-ab`.
 - **`app.js` has no A/B renderer.** The removed code is described in a comment
   where it used to live. Do not resurrect it — it drew the invalid comparison.
-- **Section 04 of the page is a retraction**, not a placeholder. It names both
-  faults, quotes the failing trial, and carries zero measurements.
+- **Section 04 of the page is a retraction**, not a placeholder. It names all
+  five faults and carries zero measurements — including zero *negative* ones.
 - `recall-5` was dropped from `build_data.py` entirely: its per-trial records no
   longer exist and its numbers survived only as hand-typed literals in this
   script.
 
-### Restoring it when the clean re-run lands
+### Restoring it — what a publishable run would need
 
-The re-run must have: n = 5 per cell, an isolated corpus root per trial, a
-CLASSIC system prompt written with comparable care, a symmetric post-compaction
-notice (or an explicit statement that the notice is part of what is compared),
-and a de-contaminated `audit` task whose answer is in neither prompt.
+Everything round two already had (n = 5 per cell, isolated corpus root per
+trial, a CLASSIC prompt written with comparable care, a symmetric
+post-compaction notice, a de-contaminated `audit` task), **plus**:
+
+- an RLM system prompt trimmed to the baseline's length, so the token column
+  measures the mechanism and not the prompt;
+- a compaction task whose summariser demonstrably *loses* the target fact —
+  verify that from the summary text before scoring anything;
+- a snapshot of `messages` taken **before** `compact()` replaces it, so phase 1
+  is auditable;
+- transcripts for every cell, checked against every behavioural claim. No claim
+  survives on the model's own account of itself.
 
 Then:
 
@@ -92,12 +121,29 @@ python3 build_data.py
 This one is safe and should be re-run whenever the probe log grows. The
 GLM-5.2 `blocked_reason` in `results.json` deliberately contains **no counts** —
 the numbers come from `availability.json` at render time, so they cannot go
-stale. Keep it that way.
+stale. Keep it that way. Twice in review a hand-typed availability figure had
+drifted from the log it cited; that is why the prose contains none.
 
-`data/smoke_run.json` is hand-transcribed from
-`reports/smoke_kimi_k3/RESULT.md` — there is no machine-readable source for it.
-Update it by hand if that run is repeated. The review checked this one and its
-figures reproduce; it is n = 1 and the page says so.
+The probe watcher was **stopped** at the last timestamp in the log, so
+`availability.json` now carries closing figures rather than a snapshot of a
+growing file (`"watcher_stopped": true`). Closing tally: **Kimi K3 34/34,
+GLM-5.1 34/34, GLM-5.2 11/34** — the watcher appended one more round after
+`docs/RESULTS.md` was written, which is why that document says 33 probes. The
+page renders whatever the file says.
+
+## The two run records
+
+`data/binary_run.json` — the **real binary**, `bench/binary_ab.sh parser-bug`,
+`rlm.enabled=true`, provider `chutes`, Kimi K3. Transcribed from
+`reports/binary_ab/{summary.jsonl,C-chutescoder.jsonl}` and the session rollout
+for thread `019fd4dc-…`. It deliberately carries **no timing or token
+comparison** between the two arms: n = 1 each, and this page asserts no
+performance result in either direction.
+
+`data/smoke_run.json` — the pre-integration driver run, hand-transcribed from
+`reports/smoke_kimi_k3/RESULT.md`. There is no machine-readable source for it.
+The review checked this one and its figures reproduce; it is n = 1 and the page
+says so.
 
 ---
 

@@ -188,14 +188,49 @@
 
 
   /* =========================================================
-     1b. The controlled harness A/B was RETRACTED on 2026-08-06.
-     data/ab_harness.json is intentionally NOT shipped and nothing here
-     renders it. The withdrawn figures live in docs/REVIEW.md §1 and the raw
-     per-trial records in reports/ — republishing them would undo the
-     retraction. When the clean re-run lands, regenerate the data file with
-     build_data.py and restore a renderer; do not resurrect this one, it drew
+     1b. The controlled harness A/B was RETRACTED on 2026-08-06 — twice. The
+     first pass ("the harness wins") died of corpus contamination and a
+     strawmanned baseline; the clean re-run ("the harness loses") is roughly
+     half to entirely an artefact of system-prompt length, and its one
+     apparently-positive cell was false because the compaction mechanism never
+     fired. Nothing here renders a number from either pass, in either
+     direction. data/ab_harness.json ships only as a tombstone.
+
+     Do NOT restore a renderer until a run exists that survives its own
+     review — and when one does, do not resurrect the old renderer, it drew
      the invalid comparison.
      ========================================================= */
+
+  /* =========================================================
+     1b2. The real binary, end to end — data/binary_run.json
+     Same shape as smoke_run.json. No timing or token comparison
+     between the arms is rendered: n = 1, and this page carries no
+     performance claim in either direction.
+     ========================================================= */
+  load("data/binary_run.json").then(function (d) {
+    var q = $("#bin-question");
+    if (q) {
+      q.innerHTML = "The shipped binary, <code>" + esc(d.binary) + "</code>, run by <code>" +
+        esc(d.command) + "</code> against <b>" + esc(d.model_label) + "</b> through provider <code>" +
+        esc(d.provider) + "</code>. The question: <em>" + md(d.question) + "</em> The task: " +
+        md(d.task) + " Outcome: <b>" + esc(d.outcome) + "</b>.";
+    }
+    var st = $("#bin-stats");
+    if (st) {
+      st.innerHTML = d.stats.map(function (x) {
+        return "<div><dt>" + esc(x.label) + "</dt><dd" + (x.emphasis ? ' class="em"' : "") + ">" +
+          esc(x.value) + "</dd></div>";
+      }).join("");
+    }
+    var tl = $("#bin-timeline");
+    if (tl) {
+      tl.innerHTML = d.timeline.map(function (x) {
+        return "<li" + (x.highlight ? ' class="hi"' : "") + ">" + md(x.text) + "</li>";
+      }).join("");
+    }
+    if ($("#bin-proves")) $("#bin-proves").innerHTML = md(d.proves);
+    if ($("#bin-not")) $("#bin-not").innerHTML = md(d.does_not_prove);
+  }).catch(function (e) { fail($("#bin-timeline"), e, "binary_run.json"); });
 
   /* =========================================================
      1c. End-to-end smoke run — data/smoke_run.json

@@ -1,31 +1,33 @@
 {
   "source_file": "data/model_availability.jsonl",
-  "probes_total": 75,
+  "$note": "Counts are recomputed from the log every time this script runs, and the page renders them from this file rather than from prose \u2014 because twice in review a hand-typed availability figure had drifted from the log it cited. The probe watcher was stopped at the `last` timestamp below, so these are closing figures, not a snapshot of a growing file.",
+  "watcher_stopped": true,
+  "probes_total": 102,
   "first": "2026-08-05T23:23:14.100108Z",
-  "last": "2026-08-06T01:31:50.759065Z",
+  "last": "2026-08-06T02:20:35.345617Z",
   "models": [
     {
       "model": "moonshotai/Kimi-K3-TEE",
-      "probes": 25,
-      "ok": 25,
+      "probes": 34,
+      "ok": 34,
       "errors": {},
       "availability": 1.0
     },
     {
       "model": "zai-org/GLM-5.1-TEE",
-      "probes": 25,
-      "ok": 25,
+      "probes": 34,
+      "ok": 34,
       "errors": {},
       "availability": 1.0
     },
     {
       "model": "zai-org/GLM-5.2-TEE",
-      "probes": 25,
-      "ok": 7,
+      "probes": 34,
+      "ok": 11,
       "errors": {
-        "HTTP Error 429: Too Many Requests": 18
+        "HTTP Error 429: Too Many Requests": 23
       },
-      "availability": 0.28
+      "availability": 0.3235
     }
   ]
 }

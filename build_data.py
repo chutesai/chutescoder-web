@@ -156,6 +156,14 @@ def main():
         m["availability"] = round(m["ok"] / m["probes"], 4)
     availability = {
         "source_file": "data/model_availability.jsonl",
+        "$note": (
+            "Counts are recomputed from the log every time this script runs, and the page renders "
+            "them from this file rather than from prose — because twice in review a hand-typed "
+            "availability figure had drifted from the log it cited. The probe watcher was stopped "
+            "at the `last` timestamp below, so these are closing figures, not a snapshot of a "
+            "growing file."
+        ),
+        "watcher_stopped": True,
         "probes_total": len(probes),
         "first": min(p["ts"] for p in probes),
         "last": max(p["ts"] for p in probes),

@@ -1,0 +1,39 @@
+{
+  "$comment": "The real chutescoder binary, run end to end with RLM mode on. Every value here is read off reports/binary_ab/{summary.jsonl,C-chutescoder.jsonl} and the session rollout for thread 019fd4dc-b4d5-73c2-bc87-fd45e5379f82. Deliberately NO timing comparison between the arms: n = 1 per arm, and this page carries no performance claim in either direction.",
+  "source_files": [
+    "reports/binary_ab/summary.jsonl",
+    "reports/binary_ab/C-chutescoder.jsonl",
+    "~/.chutescoder/sessions/2026/08/06/rollout-…-019fd4dc-b4d5-73c2-bc87-fd45e5379f82.jsonl"
+  ],
+  "date": "2026-08-06",
+  "command": "bench/binary_ab.sh parser-bug",
+  "binary": "codex-rs/target/release/chutescoder",
+  "model": "moonshotai/Kimi-K3-TEE",
+  "model_label": "Kimi K3",
+  "provider": "chutes",
+  "endpoint": "our own responses-proxy instance (production still has the multi-turn bug)",
+  "task": "A fixture repo whose parser drops the last line when the input has no trailing newline. Two tests, one failing. Fix parser.py, do not touch the tests.",
+  "question": "Does the shipped binary — not a driver we wrote — actually boot the kernel, execute Python and finish a real task with the flag on?",
+  "outcome": "completed — both tests pass, tests unmodified",
+
+  "stats": [
+    { "label": "arms run", "value": "2 — one flag apart" },
+    { "label": "rlm.enabled", "value": "true (arm C)", "emphasis": true },
+    { "label": "python cells executed", "value": "11" },
+    { "label": "cells that returned an error", "value": "3" },
+    { "label": "outcome, both arms", "value": "passed" },
+    { "label": "tests modified", "value": "none" }
+  ],
+
+  "timeline": [
+    { "text": "`chutescoder exec` starts with `-c rlm.enabled=true`, provider `chutes`, model `moonshotai/Kimi-K3-TEE`. The IPython sidecar boots." },
+    { "text": "`print(list_dir(\".\", depth=2))` — a real host call, routed back through Codex's own tool registry.", "highlight": true },
+    { "text": "Reads both files in **one** cell and binds them to variables, then names the bug: `text.split(\"\\n\")[:-1]` unconditionally drops the final element." },
+    { "text": "Tries `apply_patch(...)` from inside Python. The host returns `HostError: unsupported call: apply_patch` — an explicit error, not a plausible-looking empty result — and the model switches to `write_file` in the next cell." },
+    { "text": "Runs the tests, hits the same pytest capture-teardown fault the earlier smoke run hit, and works around it with `--capture=no -p no:cacheprovider`." },
+    { "text": "Verifies with `git diff` from inside the kernel: only `parser.py` changed, both tests pass.", "highlight": true }
+  ],
+
+  "proves": "The shipped binary works end to end with RLM mode on: the kernel boots, real Python executes, host calls route through Codex's existing tool registry, the error path surfaces failures explicitly, and the task is completed correctly. Arm B — the same binary with `rlm.enabled=false` — completed it too, so the flag does not break the product in either position.",
+  "does_not_prove": "Nothing about which harness is better. This is n = 1 per arm on one small fixture task, and no timing or token comparison is drawn from it — see the retraction in section 04 for why n = 1 wall-clock differences are not reported here."
+}

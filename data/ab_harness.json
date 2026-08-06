@@ -1,21 +1,24 @@
 {
   "retracted": true,
   "retracted_on": "2026-08-06",
-  "notice": "The controlled harness A/B that this file used to contain has been RETRACTED. No measurement from it is served here any more. If you have a cached or copied version of this file, discard it.",
+  "notice": "The controlled harness A/B that this file used to contain has been RETRACTED, twice. No measurement from it is served here any more, in either direction. If you have a cached or copied version of this file, discard it.",
   "why": [
-    "The headline accuracy result was contaminated: bench/ab_harness.py never cleaned /tmp between runs, so the compaction task ran with roughly 480 leftover same-named files from earlier tasks still on disk. The single failing trial that the entire accuracy result rested on went looking in those directories and said so in its own final message. Dropping that trial leaves the two clean trials identical on accuracy and identical on turns.",
-    "The arms were not comparable. The claim 'the only variable is the tool interface' was false: the RLM arm received a 5,438-byte system prompt teaching batching and filtering plus a post-compaction notice naming ctx.grep, while the CLASSIC arm received 232 bytes and was never told that compaction had happened."
+    "First pass, headline 'the harness wins': contaminated. bench/ab_harness.py never cleaned /tmp between runs, so the compaction task ran with roughly 480 leftover same-named files from earlier tasks still on disk, and the single failing trial the accuracy result rested on went looking in them and said so in its own final message.",
+    "First pass, comparability: the claim 'the only variable is the tool interface' was false. The RLM arm received a 5,438-byte system prompt teaching batching and filtering plus a post-compaction notice naming ctx.grep; the CLASSIC arm received 232 bytes and was never told compaction had happened.",
+    "Clean re-run, headline 'the harness loses': partly an artefact of that same prompt-length difference. On the needle task both arms did byte-identical work (2 turns, 1 grep, the same matched line) and the RLM arm still used ~2.3x the input tokens; the per-call delta matches the static prompt-length difference almost exactly. Prompt length explains ~100% of the needle gap and ~45-52% on audit and recall-40.",
+    "Clean re-run, the one remaining positive cell: false. The compaction mechanism never fired. The CLASSIC arm's own summary retained the target fact in 5 of 5 trials, including the single failing trial, whose write-up quoted the model's incorrect account of its own context instead of checking the transcript. The single failure is a within-context retrieval miss, not lossy compaction."
   ],
   "also": [
-    "In-prompt task leakage: the RLM system prompt's worked example greps for 'eval(', which is the answer to the audit task.",
+    "ctx - the feature the design leads with - was used in 0 of 20 RLM trials across both passes. Every recovery was a plain kernel-variable lookup. What is demonstrated is variable persistence across compaction, which is real and more portable, but is not the headline claim.",
+    "In-prompt task leakage (first pass): the RLM system prompt's worked example greps for 'eval(', which is the answer to the audit task. Fixed in the re-run.",
     "One row (5-fact compaction) had no per-trial record on disk at all; its numbers existed only as hand-typed literals in web/build_data.py.",
     "At the sample sizes used, no assignment of outcomes could have produced a statistically significant result.",
-    "Transcripts were not saved, so several behavioural claims in the write-up cannot be checked against the artefacts."
+    "Re-run defects: the join cell has no transcripts file; for recall only post-compaction messages were saved, so phase 1 is unauditable; two of five RLM summaries leak raw control tokens; the corpus roots were siblings under a shared /tmp parent rather than a private root (no arm reached the decoys - verified - but isolation should be structural)."
   ],
-  "full_review": "docs/REVIEW.md",
-  "current_state": "docs/RESULTS.md section 3",
+  "full_review": "docs/REVIEW.md (both passes)",
+  "current_state": "docs/RESULTS.md sections 3.6-3.8 and 6",
   "raw_per_trial_records": "reports/ab_*.json (not published on this site)",
-  "next": "A clean re-run is in progress: n=5 per cell, an isolated corpus root per trial, a CLASSIC system prompt written with comparable care, a symmetric post-compaction notice, and a de-contaminated audit task. A null result is an acceptable outcome and will be published as one.",
+  "next": "The clean re-run has happened and is also withdrawn. What would settle it: an RLM prompt trimmed to the baseline's length so the token column measures the mechanism rather than the prompt; a compaction task whose summariser demonstrably loses the target fact; a snapshot of the message list taken before compaction so phase 1 is auditable; and the product comparison (bench/binary_ab.sh, one binary, one flag) on real benchmarks. A null result is an acceptable outcome and has been published as one, twice.",
   "tasks": [],
   "metrics": []
 }
