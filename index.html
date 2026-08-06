@@ -748,7 +748,8 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
   <p class="prose">
     Two runs, each <b>n = 1</b>, each labelled as such. The first is the shipped binary doing a real
     task with the flag on — the thing that has to work before any benchmark means anything. The
-    second is the hand-written driver that de-risked the Rust integration weeks earlier. Neither is
+    second came first: a hand-written driver, run against the same kernel earlier the same day, to
+    check the premise held before the Rust integration was committed to. Neither is
     a measurement of whether the harness helps; <a href="#ab">section 04</a> is about that, and its
     answer is “we don't know”.
   </p>
