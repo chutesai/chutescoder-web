@@ -1,33 +1,31 @@
 {
-  "$comment": "THE MEASURED NUMBERS. Nothing in this file is estimated. A cell with no entry in `cells` renders as 'pending' — that is the correct state until a real run lands. See web/README.md for how to fill it in.",
+  "$comment": "THE MEASURED NUMBERS. Nothing in this file is estimated. A cell with no entry in `cells` renders as 'pending' \u2014 that is the correct state until a real run lands. See web/README.md for how to fill it in.",
   "schema_version": 1,
   "status": "pending",
   "generated": "2026-08-06",
-  "headline": "No chutescoder benchmark number has been measured yet.",
+  "headline": "No standard-benchmark number has been measured yet. What has been measured is a controlled harness A/B and one end-to-end run \u2014 both above, both Kimi K3 only.",
   "harness_commit": null,
   "plan_url": "https://github.com/chutesai/chutescode",
-
   "arms": [
     {
       "id": "A",
-      "label": "Arm A — raw API",
+      "label": "Arm A \u2014 raw API",
       "short": "raw API",
       "desc": "bench-runner calls the model directly, no agent loop. Exists only to reproduce the published numbers and prove our pipeline is calibrated."
     },
     {
       "id": "B",
-      "label": "Arm B — vanilla Codex",
+      "label": "Arm B \u2014 vanilla Codex",
       "short": "vanilla Codex",
       "desc": "upstream `codex exec`, pointed at Chutes. The conventional fixed-tool-schema harness baseline."
     },
     {
       "id": "C",
-      "label": "Arm C — chutescoder",
+      "label": "Arm C \u2014 chutescoder",
       "short": "chutescoder (RLM)",
       "desc": "our fork, RLM mode on. Same binary as arm B, one flag different."
     }
   ],
-
   "models": [
     {
       "id": "kimi-k3",
@@ -40,18 +38,21 @@
       "label": "GLM-5.2",
       "chutes_id": "zai-org/GLM-5.2-TEE",
       "context": 1048576,
-      "at_risk": true,
-      "at_risk_reason": "zai-org/GLM-5.2-TEE returned `429 Infrastructure is at maximum capacity` for a sustained period on 2026-08-06 (15/15 probes over ~10 min). The chute has 2 instances, one inactive, against Kimi K3's 7. If capacity does not return these cells will be reported as blocked, not silently substituted."
+      "blocked": true,
+      "blocked_reason": "zai-org/GLM-5.2-TEE returned `429 Infrastructure is at maximum capacity` on essentially every attempt across the whole working session. The cause is structural, not transient: the chute has 2 instances, one of them inactive, against Kimi K3's 7. Availability probing recorded 6 successes in 21 attempts (28.6%) while Kimi K3 and GLM-5.1 were 21/21 and 21/21 on the same probes. Recorded as blocked \u2014 we did not quietly substitute another model.",
+      "blocked_evidence": "data/model_availability.jsonl"
     }
   ],
-
   "benchmarks": [
     {
       "id": "terminal-bench",
       "label": "Terminal-Bench 2.x (Hard)",
       "metric": "% tasks resolved",
       "measures": "long-horizon agentic terminal / coding work",
-      "arms": ["B", "C"],
+      "arms": [
+        "B",
+        "C"
+      ],
       "public_reference": "AA-measured: K3 85.02, GLM 77.90. Lab-measured: K3 88.3, GLM 81.0.",
       "subset": true
     },
@@ -60,7 +61,10 @@
       "label": "SWE-Bench Pro",
       "metric": "% resolved",
       "measures": "repo-scale bug fixing",
-      "arms": ["B", "C"],
+      "arms": [
+        "B",
+        "C"
+      ],
       "public_reference": "GLM-5.2 only: 62.1, self-reported. No Kimi K3 number is published.",
       "subset": true
     },
@@ -69,8 +73,12 @@
       "label": "OOLONG / OOLONG-Pairs",
       "metric": "accuracy",
       "measures": "long-context reasoning",
-      "arms": ["A", "B", "C"],
-      "public_reference": "Neither lab publishes OOLONG. Prime Intellect published GLM-5.2 at 0.700 / 0.874 with their harness vs a 0.420 baseline — a direct analogue of our claim.",
+      "arms": [
+        "A",
+        "B",
+        "C"
+      ],
+      "public_reference": "Neither lab publishes OOLONG. Prime Intellect published GLM-5.2 at 0.700 / 0.874 with their harness vs a 0.420 baseline \u2014 a direct analogue of our claim.",
       "subset": false
     },
     {
@@ -78,7 +86,11 @@
       "label": "AA-LCR",
       "metric": "% correct",
       "measures": "long-context retrieval",
-      "arms": ["A", "B", "C"],
+      "arms": [
+        "A",
+        "B",
+        "C"
+      ],
       "public_reference": "K3 74.67, GLM-5.2 71.33 (Artificial Analysis). Arm A is the calibration check against these.",
       "subset": false
     },
@@ -87,11 +99,13 @@
       "label": "S-NIAH",
       "metric": "% retrieved",
       "measures": "needle-in-haystack retrieval floor",
-      "arms": ["A", "C"],
+      "arms": [
+        "A",
+        "C"
+      ],
       "public_reference": "None published for either model.",
       "subset": false
     }
   ],
-
   "cells": []
 }

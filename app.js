@@ -186,6 +186,199 @@
     }
   }
 
+
+  /* =========================================================
+     1b. Controlled harness A/B — data/ab_harness.json
+     ========================================================= */
+  var AB = null, abMetric = "turns";
+
+  load("data/ab_harness.json").then(function (d) {
+    AB = d;
+    var arms = $("#ab-arms");
+    if (arms) {
+      arms.innerHTML =
+        '<div class="arm arm-rlm"><h4>RLM</h4><p>' + esc(d.arms.RLM) + "</p></div>" +
+        '<div class="arm arm-classic"><h4>CLASSIC</h4><p>' + esc(d.arms.CLASSIC) + "</p></div>";
+    }
+    var tabs = $("#ab-metrics");
+    tabs.innerHTML = d.metrics.map(function (m) {
+      return '<button type="button" role="tab" class="mtab' + (m.id === abMetric ? " on" : "") +
+        '" data-metric="' + esc(m.id) + '" aria-selected="' + (m.id === abMetric) + '">' +
+        esc(m.label) + "</button>";
+    }).join("");
+    tabs.addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest(".mtab");
+      if (!b) return;
+      abMetric = b.getAttribute("data-metric");
+      $$(".mtab", tabs).forEach(function (x) {
+        var on = x === b;
+        x.classList.toggle("on", on);
+        x.setAttribute("aria-selected", on);
+      });
+      drawAB();
+    });
+    drawAB();
+    renderAbTable(d);
+  }).catch(function (e) { fail($("#ab-chart"), e, "ab_harness.json"); });
+
+  function fmtVal(v, metric) {
+    if (metric.fmt === "pct") return Math.round(v * 100) + "%";
+    if (metric.fmt === "0") return Math.round(v).toLocaleString("en-US");
+    var r = Math.round(v * 10) / 10;
+    return r % 1 === 0 ? String(r) : r.toFixed(1);
+  }
+
+  // Returns {text, good} describing RLM relative to CLASSIC on this metric.
+  function delta(rlm, cls, metric) {
+    if (metric.id === "accuracy") {
+      var pts = Math.round((rlm - cls) * 100);
+      if (pts === 0) return { text: "same accuracy", good: null };
+      return { text: "RLM " + (pts > 0 ? "+" : "") + pts + " pts", good: pts > 0 };
+    }
+    if (!cls) return { text: "", good: null };
+    var ratio = rlm / cls;
+    if (Math.abs(ratio - 1) < 0.005) return { text: "no difference", good: null };
+    if (ratio < 1) return { text: "RLM " + Math.round((1 - ratio) * 100) + "% fewer", good: true };
+    if (ratio >= 2) return { text: "RLM " + (Math.round(ratio * 10) / 10) + "× more", good: false };
+    return { text: "RLM " + Math.round((ratio - 1) * 100) + "% more", good: false };
+  }
+
+  function drawAB() {
+    if (!AB) return;
+    var metric = AB.metrics.filter(function (m) { return m.id === abMetric; })[0];
+    var host = $("#ab-chart");
+    var W = 920, LAB = 104, X0 = 112, X1 = 668, BLOCK = 96;
+    var max = 0;
+    AB.tasks.forEach(function (t) {
+      ["RLM", "CLASSIC"].forEach(function (a) {
+        var v = t.arms[a] && t.arms[a][metric.id];
+        if (v != null && v > max) max = v;
+      });
+    });
+    if (metric.id === "accuracy") max = 1;
+    if (!max) max = 1;
+    var sc = function (v) { return (v / max) * (X1 - X0); };
+
+    var H = 14 + AB.tasks.length * BLOCK + 10;
+    var out = ['<svg viewBox="0 0 ' + W + " " + H + '" role="img" style="width:100%;height:auto;display:block" ' +
+      'aria-label="Paired bars comparing the RLM and CLASSIC arms on ' + esc(metric.label) +
+      ' across five tasks.">'];
+
+    AB.tasks.forEach(function (t, i) {
+      var y = 14 + i * BLOCK;
+      var rlm = t.arms.RLM ? t.arms.RLM[metric.id] : null;
+      var cls = t.arms.CLASSIC ? t.arms.CLASSIC[metric.id] : null;
+
+      out.push('<text class="ab-task" x="0" y="' + (y + 12) + '">' + esc(t.label) +
+        '<tspan class="ab-shape"> · ' + esc(t.shape) + "</tspan></text>");
+      out.push('<text class="ab-blurb" x="0" y="' + (y + 29) + '">' + esc(t.blurb) + "</text>");
+
+      var d = delta(rlm, cls, metric);
+      if (d.text) {
+        out.push('<text class="ab-delta ' + (d.good === true ? "good" : d.good === false ? "bad" : "flat") +
+          '" text-anchor="end" x="' + W + '" y="' + (y + 12) + '">' + esc(d.text) + "</text>");
+      }
+
+      [["RLM", rlm, "ab-bar-rlm", y + 40], ["CLASSIC", cls, "ab-bar-classic", y + 62]].forEach(function (row) {
+        var name = row[0], v = row[1], cl = row[2], by = row[3];
+        out.push('<text class="ab-arm" x="' + LAB + '" y="' + (by + 12) + '" text-anchor="end">' + esc(name) + "</text>");
+        out.push('<rect class="ab-track" x="' + X0 + '" y="' + by + '" width="' + (X1 - X0) + '" height="16" rx="4"/>');
+        if (v != null) {
+          var w = Math.max(2, sc(v));
+          out.push('<rect class="' + cl + '" x="' + X0 + '" y="' + by + '" width="' + w.toFixed(1) + '" height="16" rx="4"/>');
+          out.push('<text class="ab-val" x="' + (X0 + w + 10).toFixed(1) + '" y="' + (by + 12.5) + '">' +
+            fmtVal(v, metric) + "</text>");
+        }
+      });
+    });
+
+    out.push("</svg>");
+    host.innerHTML = out.join("");
+
+    var foot = $("#ab-foot");
+    if (foot) {
+      foot.innerHTML =
+        "<p style='margin:0 0 10px'><b>Showing: " + esc(metric.label) + ".</b> " +
+        (metric.id === "accuracy"
+          ? "Higher is better. Both arms were correct on every trial of every task except recall-40, where one CLASSIC trial burned its whole 20-turn budget and finished wrong."
+          : "Lower is better. Bars share one scale across all five tasks, so the vertical comparison is real.") +
+        "</p><p class='fineprint' style='margin:0'>" + esc(AB.caveat) + " Model <code>" +
+        esc(AB.model) + "</code> via <code>" + esc(AB.endpoint) + "</code>, temperature " +
+        esc(AB.temperature) + ", harness <code>" + esc(AB.harness_script) + "</code>.</p>";
+    }
+  }
+
+  function renderAbTable(d) {
+    var t = $("#ab-table");
+    if (!t) return;
+    var head = "<thead><tr><th>Task</th><th>Arm</th><th class='num'>correct</th><th class='num'>turns</th>" +
+      "<th class='num'>tool calls</th><th class='num'>tokens in</th><th class='num'>wall s</th></tr></thead>";
+    var rows = [];
+    d.tasks.forEach(function (task) {
+      ["RLM", "CLASSIC"].forEach(function (arm, j) {
+        var a = task.arms[arm];
+        if (!a) return;
+        rows.push("<tr" + (j === 0 ? ' class="ab-rowtop"' : "") + ">" +
+          "<td>" + (j === 0 ? "<b>" + esc(task.label) + "</b>" : "") + "</td>" +
+          "<td><span class='pill " + (arm === "RLM" ? "pill-third" : "pill-self") + "'>" + esc(arm) + "</span></td>" +
+          "<td class='num'>" + esc(a.correct) + " / " + esc(a.trials) + "</td>" +
+          "<td class='num'>" + fmtVal(a.turns, { fmt: "1" }) + "</td>" +
+          "<td class='num'>" + fmtVal(a.tool_calls, { fmt: "1" }) + "</td>" +
+          "<td class='num'>" + fmtVal(a.tokens_in, { fmt: "0" }) + "</td>" +
+          "<td class='num'>" + fmtVal(a.wall_clock_s, { fmt: "0" }) + "</td>" +
+          "</tr>");
+      });
+    });
+    t.innerHTML = head + "<tbody>" + rows.join("") + "</tbody>";
+
+    var prov = $("#ab-provenance");
+    if (prov) {
+      prov.innerHTML = "Aggregates are arithmetic means over the per-trial records, computed by " +
+        "<code>web/build_data.py</code> into <code>data/ab_harness.json</code>. Raw records: " +
+        d.tasks.map(function (x) {
+          return "<code>" + esc(x.source_file) + "</code>" +
+            (x.per_trial ? "" : " <em>(" + esc(x.source_note || "aggregate only") + ")</em>");
+        }).join(", ") + ".";
+    }
+  }
+
+  /* =========================================================
+     1c. End-to-end smoke run — data/smoke_run.json
+     ========================================================= */
+  load("data/smoke_run.json").then(function (d) {
+    var q = $("#e2e-question");
+    if (q) {
+      q.innerHTML = "One task, the real kernel, a real frontier model, start to finish. The question " +
+        "it existed to answer, before committing to the Rust integration: <em>" + md(d.question) +
+        "</em> The task itself: " + md(d.task) + " Outcome: <b>" + esc(d.outcome) + "</b>.";
+    }
+    var st = $("#e2e-stats");
+    if (st) {
+      st.innerHTML = d.stats.map(function (x) {
+        return "<div><dt>" + esc(x.label) + "</dt><dd" + (x.emphasis ? ' class="em"' : "") + ">" +
+          esc(x.value) + "</dd></div>";
+      }).join("");
+    }
+    var tl = $("#e2e-timeline");
+    if (tl) {
+      tl.innerHTML = d.timeline.map(function (x) {
+        return "<li" + (x.highlight ? ' class="hi"' : "") + ">" + md(x.text) + "</li>";
+      }).join("");
+    }
+    var mem = $("#e2e-memory");
+    if (mem) mem.innerHTML = highlight(d.memory_call);
+    if ($("#e2e-proves")) $("#e2e-proves").innerHTML = md(d.proves);
+    if ($("#e2e-not")) $("#e2e-not").innerHTML = md(d.does_not_prove);
+  }).catch(function (e) { fail($("#e2e-timeline"), e, "smoke_run.json"); });
+
+  // Minimal inline markdown: `code`, **bold**, *italic*. Escapes everything else.
+  function md(t) {
+    return esc(t)
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*([^*]+)\*/g, "<em>$1</em>");
+  }
+
   /* =========================================================
      2. Results — driven entirely by data/results.json
      ========================================================= */
@@ -214,12 +407,16 @@
 
     // -------- status hero
     var pct = expected.length ? Math.round(measured / expected.length * 100) : 0;
-    var atRisk = d.models.filter(function (m) { return m.at_risk; });
+    var blockedModels = d.models.filter(function (m) { return m.blocked; });
+    var blockedCells = expected.filter(function (x) {
+      var c = byKey[cellKey(x.b.id, x.m.id, x.a)];
+      return (c && c.state === "blocked") || (!c && x.m.blocked);
+    }).length;
     var st = $("#results-status");
     st.innerHTML =
       '<div class="ph-top">' +
-        '<span class="pill ' + (measured ? "pill-third" : "pill-pending") + '">' +
-          (measured ? "partial results" : "measurements in progress") + "</span>" +
+        '<span class="pill ' + (measured ? "pill-third" : "pill-risk") + '">' +
+          (measured ? "partial results" : "not run") + "</span>" +
         '<span class="ph-head">' + esc(d.headline) + "</span>" +
       "</div>" +
       '<p class="ph-sub">This table is rendered from <code>data/results.json</code>. Every ' +
@@ -230,14 +427,19 @@
         "</b> cells measured &middot; " + esc(d.benchmarks.length) + " benchmarks × " +
         esc(d.models.length) + " models × arms &middot; harness commit: " +
         (d.harness_commit ? "<b>" + esc(d.harness_commit) + "</b>" : "not yet pinned") + "</p>" +
-      (atRisk.length
-        ? atRisk.map(function (m) {
-            return '<p class="ph-count" style="margin-top:10px"><span class="pill pill-risk">at risk</span> ' +
-              '<span data-src-title="' + esc(m.label + " capacity risk") + '" data-src-note="' +
-              esc(m.at_risk_reason) + '" style="cursor:help;border-bottom:1px dotted var(--border-2)">' +
-              esc(m.label) + " — capacity</span></p>";
-          }).join("")
-        : "");
+      (blockedCells
+        ? '<p class="ph-count" style="margin-top:10px"><span class="pill pill-risk">blocked</span> <b>' +
+          blockedCells + "</b> of those cells are blocked, not merely unrun</p>"
+        : "") +
+      blockedModels.map(function (m) {
+        return '<div class="blocked-note"><h4><span class="pill pill-risk">blocked</span> ' +
+          esc(m.label) + " <span class='dim'>" + esc(m.chutes_id) + "</span></h4><p>" +
+          md(m.blocked_reason) + "</p>" +
+          (m.blocked_evidence
+            ? '<p class="fineprint">Evidence: <code>' + esc(m.blocked_evidence) +
+              '</code> <span id="avail-line"></span></p>'
+            : "") + "</div>";
+      }).join("");
 
     // -------- arm legend
     var leg = $("#arm-legend");
@@ -252,17 +454,18 @@
         d.models.forEach(function (m) {
           var c = byKey[cellKey(b.id, m.id, a)];
           var armLabel = (d.arms.filter(function (x) { return x.id === a; })[0] || {}).short || a;
-          var state = c ? c.state : "pending";
+          var state = c ? c.state : (m.blocked ? "blocked" : "pending");
           var pill = state === "measured" ? '<span class="pill pill-third">measured</span>'
-            : state === "blocked" ? '<span class="pill pill-risk">blocked</span>'
-            : '<span class="pill pill-pending">pending</span>' +
-              (m.at_risk ? ' <span class="flagged" data-src-title="' + esc(m.label + " capacity risk") +
-                '" data-src-note="' + esc(m.at_risk_reason) + '">▲</span>' : "");
+            : state === "blocked"
+              ? '<span class="pill pill-risk" data-src-title="' + esc(m.label + " — blocked") +
+                '" data-src-note="' + esc(m.blocked_reason || (c && c.notes) || "") +
+                '">blocked</span>'
+              : '<span class="pill pill-pending">pending</span>';
           var val = function (k, suffix) {
             return c && c[k] != null ? esc(c[k]) + (suffix || "") : '<span class="empty">—</span>';
           };
           rows.push(
-            "<tr>" +
+            '<tr' + (state === "blocked" ? ' class="row-blocked"' : "") + ">" +
               "<td>" + esc(m.label) + "</td>" +
               "<td><b>" + esc("Arm " + a) + "</b> <span class='dim'>" + esc(armLabel) + "</span></td>" +
               '<td class="num">' + (c && c.score != null ? "<b>" + esc(c.score) + "</b>" : '<span class="empty">—</span>') + "</td>" +
@@ -285,7 +488,23 @@
     }).join("");
 
     $("#results-tables").innerHTML = out;
+    paintAvail();
   }
+
+  /* ---- availability evidence line (data/availability.json) ---- */
+  var AVAIL = null;
+  function paintAvail() {
+    var a = AVAIL, el = $("#avail-line");
+    if (!a || !el) return;
+    el.innerHTML = "— " + a.probes_total + " probes over " +
+      esc(a.first.slice(0, 16).replace("T", " ")) + "–" + esc(a.last.slice(11, 16)) + " UTC: " +
+      a.models.map(function (m) {
+        var pct = Math.round(m.availability * 100);
+        return "<b" + (pct < 100 ? ' class="neg"' : "") + ">" + esc(m.model.split("/")[1]) + " " +
+          m.ok + "/" + m.probes + " (" + pct + "%)</b>";
+      }).join(", ") + ".";
+  }
+  load("data/availability.json").then(function (a) { AVAIL = a; paintAvail(); }).catch(function () {});
 
   /* =========================================================
      3. Published scores table

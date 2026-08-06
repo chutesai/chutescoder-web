@@ -1,0 +1,35 @@
+{
+  "$comment": "Transcribed from reports/smoke_kimi_k3/RESULT.md. The artefacts the model wrote are reports/smoke_kimi_k3/{stats.py,test_stats.py}.",
+  "source_file": "reports/smoke_kimi_k3/RESULT.md",
+  "date": "2026-08-06",
+  "command": "bench/rlm_smoke.py --model moonshotai/Kimi-K3-TEE --api chat",
+  "model": "moonshotai/Kimi-K3-TEE",
+  "model_label": "Kimi K3",
+  "endpoint": "llm.chutes.ai/v1/chat/completions",
+  "task": "Write stats.py (mean/median/mode, no `statistics` import) plus test_stats.py covering empty-input behaviour, make the tests pass, and report back.",
+  "question": "Given one Python tool and the RLM prompt, does a frontier model actually use programmatic tool calling — or does it just write one action per cell, in which case the whole premise is wrong?",
+
+  "outcome": "completed — 12/12 tests passing",
+  "stats": [
+    { "label": "cells executed", "value": "6" },
+    { "label": "host calls", "value": "10" },
+    { "label": "host calls per cell", "value": "1.7", "emphasis": true },
+    { "label": "tests passing", "value": "12 / 12" },
+    { "label": "tokens", "value": "21,864 in / 2,572 out" },
+    { "label": "wall clock", "value": "117 s" }
+  ],
+
+  "timeline": [
+    { "turn": 1, "text": "`print(list_dir(\".\"))` — one call, orienting." },
+    { "turn": 2, "text": "Wrote **both** files in a single cell — two `write_file` host calls in one turn. A conventional harness spends two turns here.", "highlight": true },
+    { "turn": 3, "text": "`shell(\"python -m pytest test_stats.py -q\")` → \"no tests ran\"." },
+    { "turn": 4, "text": "Diagnosed it in one cell that ran the tests *and* inspected the file: `shell(… -v 2>&1; echo EXIT=$?)` plus `sh(\"head -5 test_stats.py; wc -l …\")`. Two host calls, one turn, one context round trip." },
+    { "turn": 5, "text": "Found the real cause — pytest's capture teardown was broken in the sandbox — and re-ran with `--capture=no -p no:cacheprovider`. 12/12 passed." },
+    { "turn": 6, "text": "Then it wrote itself a memory, **unprompted**.", "highlight": true }
+  ],
+
+  "memory_call": "rlm.harness.create_memory(\"pytest-capture-broken\",\n    \"In this sandbox, plain `python -m pytest` fails during global capture teardown \"\n    \"(FileNotFoundError in _pytest/capture.py, 0 items collected). Run with \"\n    \"`--capture=no -p no:cacheprovider` to get reliable results.\")",
+
+  "proves": "The kernel, the host-call bridge, the `rlm` module, the harness client and the prompt work together against a real frontier model on a real task — and the model batches host calls the way the design assumes rather than writing one action per cell.",
+  "does_not_prove": "This is not chutescoder. It is a ~200-line driver exposing the same kernel through the same prompt, written to de-risk the Rust integration early and cheaply. It is n=1, it is not a benchmark, and it says nothing about whether the harness beats a conventional one."
+}

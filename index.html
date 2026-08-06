@@ -25,8 +25,9 @@
       <a href="#why">Why</a>
       <a href="#what">What it does</a>
       <a href="#how">How it's built</a>
-      <a href="#results">Results</a>
-      <a href="#published">Published scores</a>
+      <a href="#ab">Measured</a>
+      <a href="#results">Benchmarks</a>
+      <a href="#published">Scores</a>
     </nav>
     <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle colour theme">
       <span class="t-sun" aria-hidden="true">☀</span><span class="t-moon" aria-hidden="true">☾</span>
@@ -39,14 +40,15 @@
 <!-- ─────────────────────────── STATUS BANNER ─────────────────────────── -->
 <div class="wrap">
   <aside class="banner" role="status" id="status-banner">
-    <span class="banner-pill">Measurements in progress</span>
+    <span class="banner-pill">Standard benchmarks pending</span>
     <p>
-      <strong>No chutescoder benchmark number exists yet.</strong> The harness is built and
-      tested; the A/B runs against vanilla Codex have not been scored. Every number on this
-      page is a <em>published</em> figure for the two models under test, transcribed from a
-      named source and linked. The
-      <a href="#results">results table</a> lists exactly which cells are still empty.
-      Nothing on this page is estimated, projected or placeholder.
+      <strong>We have measured data — but not the number you came for.</strong> A controlled harness
+      A/B and one end-to-end run are done, both Kimi K3 only, both
+      <a href="#ab">reported in full below</a> including where the harness <em>loses</em>. The
+      standard benchmarks (Terminal-Bench, SWE-Bench Pro, OOLONG, AA-LCR, S-NIAH) have
+      <a href="#results">not been run</a>, and GLM-5.2 could not be run at all. Every number here is
+      traceable to a file in <code>data/</code> or to a named source. Nothing is estimated,
+      projected or placeholder.
     </p>
   </aside>
 </div>
@@ -375,10 +377,180 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
   </div>
 </section>
 
+<!-- ──────────────────────── A/B MECHANISM STUDY ─────────────────────── -->
+<section class="wrap section" id="ab">
+  <p class="kicker">04 — measured</p>
+  <h2>The controlled harness A/B</h2>
+  <p class="prose">
+    This is the only measured data on this page, and it is not the headline experiment. It is a
+    cheap, fully-controlled test of the <em>one variable</em> the RLM design is about, run while the
+    Rust build was still going. Identical model, task, corpus, turn budget, temperature and endpoint.
+    The only thing that changes is how the model reaches its tools.
+  </p>
+
+  <div class="callout callout-warn" id="ab-disclaimer">
+    <h4>Read this before reading the numbers</h4>
+    <p>
+      <strong>This is not chutescoder versus upstream Codex.</strong> That comparison needs both real
+      binaries driven through Sandy on a standard benchmark, and it has not been run — see
+      <a href="#results">Benchmarks</a>, where every cell is still empty. What follows is a mechanism
+      study: <b>n = 1–3 trials per cell, one model, five synthetic tasks.</b> Directional, not
+      publishable. Anyone citing this work should say "controlled mechanism study, n small, one
+      model" — not "chutescoder beats Codex".
+    </p>
+  </div>
+
+  <div class="arm-legend" id="ab-arms"></div>
+
+  <figure class="chart-card">
+    <figcaption class="chart-head">
+      <h3>RLM vs CLASSIC, Kimi K3</h3>
+      <p>Tasks are ordered from the one the harness loses to the one it wins hardest. Pick a metric;
+      the delta on the right says which arm did better and by how much.</p>
+    </figcaption>
+    <div class="metric-tabs" id="ab-metrics" role="tablist" aria-label="Metric"></div>
+    <div id="ab-chart" class="chart-body"><p class="loading">Loading A/B results…</p></div>
+    <div class="chart-foot" id="ab-foot"></div>
+  </figure>
+
+  <h3 class="sub-h">What it actually says</h3>
+  <div class="finding-grid">
+
+    <article class="finding finding-loss">
+      <div class="finding-tag">the harness loses</div>
+      <h4>1. On tasks a single <code>grep</code> answers, RLM is pure overhead</h4>
+      <p>
+        <code>needle</code> is the clearest case: CLASSIC solved it in <b>one tool call and 946 input
+        tokens</b>, against RLM's <b>6,246</b>. Almost all of the difference is the ~5 KB RLM prompt,
+        paid on every single request whether the task needs it or not. Reported first because it is
+        the honest shape of the result: <em>this harness is not free, and it does not pay for itself
+        on easy retrieval.</em>
+      </p>
+    </article>
+
+    <article class="finding finding-win">
+      <div class="finding-tag">the harness wins</div>
+      <h4>2. Where intermediate results must be combined, it wins</h4>
+      <p>
+        <code>join</code> needs 180 files parsed, dependency sets built and 16,110 pairs compared:
+        <b>2.5 turns vs 4.0</b> and <b>1.5 tool calls vs 3.0</b>. One cell does the parse, the join
+        and the argmax; the conventional arm needs a turn to orient, a turn to look and a turn to
+        compute.
+      </p>
+    </article>
+
+    <article class="finding finding-mixed">
+      <div class="finding-tag">it depends</div>
+      <h4>3. After compaction, the advantage tracks whether compaction was actually lossy</h4>
+      <p>
+        With <b>5 facts</b>, RLM used <b>30% fewer turns and 58% fewer tool calls</b> — but
+        <em>both arms scored 3/3</em>, because a competent summariser simply kept all five facts.
+        Efficiency, not accuracy. Reporting that as a capability win would have been overclaiming.
+      </p>
+      <p>
+        So it was rerun with <b>40 facts</b> — more than a concise summary can hold. Now an accuracy
+        gap appears: <b>RLM 3/3 vs CLASSIC 2/3</b>, alongside 27% fewer turns, 42% fewer tool calls
+        and <b>half the wall clock</b>. The failing CLASSIC trial burned all 20 turns and 49,875
+        tokens searching a filesystem that no longer held the answer, and finished wrong. The RLM arm
+        reached its own evicted history with <code>ctx.grep</code>.
+      </p>
+      <p class="fineprint">
+        One failure in three is a small sample. The honest reading is "consistent with the predicted
+        mechanism", not "a 33-point accuracy win".
+      </p>
+    </article>
+
+  </div>
+
+  <div class="callout callout-uncomfortable">
+    <div class="finding-tag">the uncomfortable finding</div>
+    <h4><code>shell</code> is already a programmatic escape hatch</h4>
+    <p>
+      CLASSIC did not lose <code>join</code> by brute force. It won its way to the same answer by
+      writing a <code>python -c</code> one-liner through its <code>shell</code> tool. Every serious
+      coding agent has a shell, so <strong>"it can loop" is not the advantage</strong> — the baseline
+      can loop too. This narrows the claim considerably, and it should be narrowed. The marketing
+      version of programmatic tool calling oversells against baselines that already have a REPL one
+      <code>bash -lc</code> away.
+    </p>
+    <p>What the baseline genuinely cannot do, and what the measurements above are actually about:</p>
+    <ul class="tight-list">
+      <li><b>Keep state across turns.</b> Its shell is stateless — every invocation starts over. The RLM kernel still holds <code>deps</code> on the next turn.</li>
+      <li><b>Avoid re-paying for output.</b> A <code>shell</code> result lands in the context window in full. A cell's result can stay in the kernel as <code>out[N]</code> and be sliced later for free.</li>
+      <li><b>Reach into evicted history.</b> This is where the real claim lives, and it is the only thing <code>recall-40</code> tests.</li>
+    </ul>
+  </div>
+
+  <details class="details">
+    <summary>Every measured cell, and where the raw records live</summary>
+    <div class="details-body">
+      <div class="table-scroll" style="border:none;background:none;margin:0">
+        <table class="cells" id="ab-table"><tbody></tbody></table>
+      </div>
+      <p class="fineprint" id="ab-provenance"></p>
+    </div>
+  </details>
+
+  <details class="details">
+    <summary>What is still untested here</summary>
+    <div class="details-body">
+      <ul>
+        <li>Every task finishes in 2–20 turns, far short of a real context window. Compaction is <em>forced</em> synthetically rather than reached naturally.</li>
+        <li>One model. GLM-5.2 could not be run at all — see <a href="#results">the blocked cells below</a>.</li>
+        <li>Sub-agent delegation (<code>rlm(...)</code>) and <code>/refine</code> are not implemented yet, so neither is exercised.</li>
+        <li>Five synthetic tasks are not a benchmark. The adapters for Terminal-Bench, SWE-Bench Pro, OOLONG, AA-LCR and S-NIAH exist in the repaired bench-runner; the runs have not been executed.</li>
+      </ul>
+    </div>
+  </details>
+</section>
+
+<!-- ──────────────────────── END-TO-END RUN ──────────────────────────── -->
+<section class="wrap section" id="e2e">
+  <p class="kicker">05 — measured</p>
+  <h2>One end-to-end run</h2>
+  <p class="prose" id="e2e-question"></p>
+
+  <dl class="hero-stats" id="e2e-stats"></dl>
+
+  <div class="e2e-grid">
+    <div>
+      <h3 class="sub-h" style="margin-top:38px">What actually happened, turn by turn</h3>
+      <ol class="timeline" id="e2e-timeline"></ol>
+    </div>
+    <aside class="e2e-aside">
+      <h4>The artefact</h4>
+      <p>
+        At turn 5, having worked out on its own that pytest's capture teardown was broken in the
+        sandbox, the model wrote itself a harness memory. <strong>Nothing in the task asked for
+        it.</strong> This is the Continual Harness doing exactly what it exists for, on the model's
+        first ever exposure to the API.
+      </p>
+      <pre class="code" data-lang="python"><code id="e2e-memory"></code></pre>
+      <p class="fineprint">
+        A memory is a few lines of text that go into the system prompt of every future session. The
+        cost of writing one is a single host call. The cost of <em>not</em> having it was the two
+        turns this run had just spent.
+      </p>
+    </aside>
+  </div>
+
+  <div class="fact-grid">
+    <div class="fact"><h4>What this does prove</h4><p id="e2e-proves"></p></div>
+    <div class="fact"><h4>What it does not</h4><p id="e2e-not"></p></div>
+  </div>
+</section>
+
 <!-- ──────────────────────────── RESULTS ─────────────────────────────── -->
 <section class="wrap section" id="results">
-  <p class="kicker">04 — the experiment</p>
+  <p class="kicker">06 — the experiment</p>
   <h2>Benchmark results</h2>
+
+  <p class="prose">
+    This is the experiment the project set out to run, and it is <strong>the one that has not been
+    run</strong>. The <a href="#ab">A/B above</a> is a controlled proxy for the mechanism; this is
+    the product comparison, and it needs the built binary driven through Sandy against real
+    benchmarks. The adapters exist in the (now repaired) bench-runner. The runs do not.
+  </p>
 
   <div class="pending-hero" id="results-status"></div>
 
@@ -393,6 +565,33 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
   <div class="arm-legend" id="arm-legend"></div>
 
   <div id="results-tables"><p class="loading">Loading results…</p></div>
+
+  <div class="callout">
+    <h4>A fault we found on the way, that would have produced two plausible-looking zeros</h4>
+    <p>
+      Before any arm could run, <code>responses.chutes.ai</code> turned out to be unable to do
+      multi-turn tool calling with Kimi K3. The first tool call worked; replaying the result back
+      failed with <em>"Kimi K3 tool messages need a resolvable tool name."</em> The model was not at
+      fault — the identical conversation succeeds against <code>llm.chutes.ai</code>. The proxy was
+      dropping the assistant <code>tool_calls</code> message when replaying history, so the generated
+      chat request was literally <code>[user, tool]</code>: nothing to match by order, and no name.
+    </p>
+    <p>
+      <strong>This capped every agent using Kimi K3 through that endpoint at a single tool call</strong>
+      — including Codex itself and Sandy's built-in <code>codex</code> agent, which is exactly what the
+      bench-runner's Terminal-Bench adapter drives. It would have broken arm B and arm C
+      <em>identically</em>, which is the kind of fault that yields two believable zeros instead of an
+      error. Fixed in
+      <a href="https://github.com/chutesai/responses-proxy/pull/1">chutesai/responses-proxy PR #1</a>
+      with 13 regression tests that assert on the generated chat messages; the reproduction was
+      proven against a pristine checkout first.
+    </p>
+    <p class="fineprint">
+      <code>responses.chutes.ai</code> itself was not touched — it is shared production
+      infrastructure, so the fix is a PR awaiting review. Details:
+      <code>docs/RESPONSES_PROXY_FIX.md</code>.
+    </p>
+  </div>
 
   <details class="details">
     <summary>What we record for every cell, and why an empty cell stays empty</summary>
@@ -440,7 +639,7 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
 
 <!-- ──────────────────────── PUBLISHED SCORES ────────────────────────── -->
 <section class="wrap section" id="published">
-  <p class="kicker">05 — the baseline record</p>
+  <p class="kicker">07 — the baseline record</p>
   <h2>Published scores for the two models</h2>
   <p class="prose">
     Everything below is transcribed from a named source. Nothing is estimated, interpolated or
@@ -528,7 +727,7 @@ rlm.harness.read("skill", "release")  # load the body only when you need it</cod
 
 <!-- ──────────────────────── ATTRIBUTION ─────────────────────────────── -->
 <section class="wrap section" id="attribution">
-  <p class="kicker">06</p>
+  <p class="kicker">08</p>
   <h2>Attribution</h2>
   <div class="attr-grid">
     <div class="attr">

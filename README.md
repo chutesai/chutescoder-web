@@ -9,10 +9,15 @@ web/
   index.html                  the page (structure + prose)
   styles.css                  light + dark themes, one stylesheet
   app.js                      chart, tables, filters, theme toggle (no deps)
+  build_data.py               regenerates ab_harness.json + availability.json
   data/
-    results.json          ←   OUR measured numbers. Currently empty on purpose.
+    ab_harness.json       ←   GENERATED. The controlled RLM-vs-CLASSIC A/B.
+    availability.json     ←   GENERATED. Per-model probe success rate.
+    smoke_run.json        ←   the end-to-end Kimi K3 run (hand-transcribed)
+    results.json          ←   the standard-benchmark grid. Still empty on purpose.
     public_scores.json    ←   the 130 published scores for Kimi K3 / GLM-5.2
     harness_spread.json   ←   the three Terminal-Bench 2.1 runs in the hero chart
+    model_availability.jsonl  raw probe log, copied from ../data/
   render.yaml                 Render blueprint (static site, free plan)
 ```
 
@@ -25,6 +30,38 @@ material and a single invented score poisons the whole page.
 
 `results.json` ships with `"cells": []`, so every (benchmark × model × arm) cell
 renders as `pending`. That is the intended state until real runs land.
+
+---
+
+## Regenerating the measured A/B data
+
+`data/ab_harness.json` and `data/availability.json` are **generated** — do not
+hand-edit them. After any new `bench/ab_harness.py` run:
+
+```bash
+cd web
+cp ../data/model_availability.jsonl data/    # if new probes landed
+python3 build_data.py
+```
+
+`build_data.py` reads `../reports/ab_*.json`, computes the arithmetic mean of the
+per-trial values per (task, arm), and writes the aggregates plus the raw trials.
+It invents nothing.
+
+To add a task, append an entry to `TASKS` in `build_data.py` with its report
+filename, a `blurb` and a `shape`. Tasks render in list order — the site keeps
+them ordered *from the task the harness loses to the one it wins hardest*, which
+is deliberate. Keep it that way.
+
+One task, `recall-5`, has `"file": None` and carries a hardcoded `aggregate`
+block: its per-trial records were overwritten on disk by the `recall-40` rerun,
+so the numbers are transcribed from `docs/RESULTS.md` §3 and the site labels them
+as aggregate-only. If those per-trial records ever come back, point `file` at
+them and delete the `aggregate` block.
+
+`data/smoke_run.json` is hand-transcribed from
+`reports/smoke_kimi_k3/RESULT.md` — there is no machine-readable source for it.
+Update it by hand if that run is repeated.
 
 ---
 
@@ -57,10 +94,19 @@ so the "N of M cells measured" meter and the pending list update themselves.
 
 ### 2. Mark blocked cells honestly
 
-If a cell cannot be run — e.g. `zai-org/GLM-5.2-TEE` never regains capacity —
-use `"state": "blocked"` with a `"notes"` explaining why. Do **not** silently
-substitute a different model; that is exactly the failure mode the benchmark
-plan is designed to avoid.
+Two ways, and both render a red `blocked` pill rather than a grey `pending` one:
+
+- **Per model** — set `"blocked": true`, `"blocked_reason": "…"` and optionally
+  `"blocked_evidence": "data/…"` on the entry in `models`. Every cell for that
+  model becomes blocked, and the reason appears as a callout under the status
+  meter. This is what `glm-5.2` currently uses.
+- **Per cell** — a `cells` entry with `"state": "blocked"` and a `"notes"`.
+  Use this when only some cells are affected. A per-cell entry overrides the
+  model-level flag.
+
+Do **not** silently substitute a different model; that is exactly the failure
+mode the benchmark plan is designed to avoid. To un-block, delete the flag —
+the cells fall back to `pending`.
 
 ### 3. Flip the page out of "pending" mode
 

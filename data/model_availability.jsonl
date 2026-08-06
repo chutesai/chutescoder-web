@@ -1,0 +1,63 @@
+{"model": "zai-org/GLM-5.2-TEE", "ok": false, "err": "HTTP Error 429: Too Many Requests", "ts": "2026-08-05T23:23:14.100108Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 2112, "ts": "2026-08-05T23:23:16.213141Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 35502, "ts": "2026-08-05T23:23:51.716549Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": false, "err": "HTTP Error 429: Too Many Requests", "ts": "2026-08-05T23:28:52.032227Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 2003, "ts": "2026-08-05T23:28:54.036299Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 1203, "ts": "2026-08-05T23:28:55.243785Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": false, "err": "HTTP Error 429: Too Many Requests", "ts": "2026-08-05T23:33:56.501427Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 1844, "ts": "2026-08-05T23:33:58.369590Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 1327, "ts": "2026-08-05T23:33:59.697624Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": false, "err": "HTTP Error 429: Too Many Requests", "ts": "2026-08-05T23:39:01.167727Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 6569, "ts": "2026-08-05T23:39:07.754913Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 1640, "ts": "2026-08-05T23:39:09.396360Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": true, "ms": 25804, "ts": "2026-08-05T23:44:35.400029Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 2034, "ts": "2026-08-05T23:44:37.456064Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 6897, "ts": "2026-08-05T23:44:44.357155Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": true, "ms": 3961, "ts": "2026-08-05T23:49:49.278457Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 7050, "ts": "2026-08-05T23:49:56.389933Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 1150, "ts": "2026-08-05T23:49:57.543456Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": true, "ms": 6625, "ts": "2026-08-05T23:55:04.632658Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 9324, "ts": "2026-08-05T23:55:13.978615Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 1737, "ts": "2026-08-05T23:55:15.716255Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": true, "ms": 1540, "ts": "2026-08-06T00:00:17.282620Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 1626, "ts": "2026-08-06T00:00:18.911718Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 99933, "ts": "2026-08-06T00:01:58.855126Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": false, "err": "HTTP Error 429: Too Many Requests", "ts": "2026-08-06T00:06:59.357205Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 1689, "ts": "2026-08-06T00:07:01.048359Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 52447, "ts": "2026-08-06T00:07:53.497210Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": true, "ms": 7080, "ts": "2026-08-06T00:13:00.631951Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 2109, "ts": "2026-08-06T00:13:02.744802Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 6696, "ts": "2026-08-06T00:13:09.441598Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": false, "err": "HTTP Error 429: Too Many Requests", "ts": "2026-08-06T00:18:10.603200Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 1866, "ts": "2026-08-06T00:18:12.483590Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 27541, "ts": "2026-08-06T00:18:40.031045Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": false, "err": "HTTP Error 429: Too Many Requests", "ts": "2026-08-06T00:23:42.807130Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 1622, "ts": "2026-08-06T00:23:44.441063Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 1156, "ts": "2026-08-06T00:23:45.597986Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": false, "err": "HTTP Error 429: Too Many Requests", "ts": "2026-08-06T00:28:47.279166Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 1589, "ts": "2026-08-06T00:28:48.877351Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 12552, "ts": "2026-08-06T00:29:01.430478Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": false, "err": "HTTP Error 429: Too Many Requests", "ts": "2026-08-06T00:34:02.147265Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 1509, "ts": "2026-08-06T00:34:03.658746Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 4160, "ts": "2026-08-06T00:34:07.819785Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": false, "err": "HTTP Error 429: Too Many Requests", "ts": "2026-08-06T00:39:08.314858Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 2109, "ts": "2026-08-06T00:39:10.427892Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 1325, "ts": "2026-08-06T00:39:11.754408Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": true, "ms": 1674, "ts": "2026-08-06T00:44:13.479072Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 2218, "ts": "2026-08-06T00:44:15.704668Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 1154, "ts": "2026-08-06T00:44:16.860799Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": false, "err": "HTTP Error 429: Too Many Requests", "ts": "2026-08-06T00:49:17.179320Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 1645, "ts": "2026-08-06T00:49:18.827961Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 2981, "ts": "2026-08-06T00:49:21.810222Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": false, "err": "HTTP Error 429: Too Many Requests", "ts": "2026-08-06T00:54:22.160109Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 1786, "ts": "2026-08-06T00:54:23.948213Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 1638, "ts": "2026-08-06T00:54:25.587538Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": false, "err": "HTTP Error 429: Too Many Requests", "ts": "2026-08-06T00:59:25.980183Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 2946, "ts": "2026-08-06T00:59:28.928102Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 1149, "ts": "2026-08-06T00:59:30.077482Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": false, "err": "HTTP Error 429: Too Many Requests", "ts": "2026-08-06T01:04:30.469007Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 1900, "ts": "2026-08-06T01:04:32.376208Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 11040, "ts": "2026-08-06T01:04:43.417624Z"}
+{"model": "zai-org/GLM-5.2-TEE", "ok": false, "err": "HTTP Error 429: Too Many Requests", "ts": "2026-08-06T01:09:43.690661Z"}
+{"model": "moonshotai/Kimi-K3-TEE", "ok": true, "ms": 1523, "ts": "2026-08-06T01:09:45.214534Z"}
+{"model": "zai-org/GLM-5.1-TEE", "ok": true, "ms": 1731, "ts": "2026-08-06T01:09:46.946768Z"}
