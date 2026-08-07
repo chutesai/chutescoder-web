@@ -277,6 +277,34 @@
     fail($("#results-status"), e, "results.json");
   });
 
+
+  function renderMechanismProof(mp) {
+    var rows = (mp.arms || []).map(function (a) {
+      var tc = a.tool_calls || {};
+      return "<tr><td><b>" + esc(a.label) + "</b><br><code class='dim'>" + esc(a.config) + "</code></td>" +
+        "<td class='num'>" + esc(a.rollout_lines) + "</td>" +
+        "<td class='num'><b>" + esc(tc.python || 0) + "</b> python<br>" +
+          "<span class='dim'>" + esc(tc.exec_command || 0) + " shell</span></td>" +
+        "<td class='num'>" + (a.score === 1 ? "<span class='pill pill-third'>pass</span>"
+                                            : "<span class='pill pill-risk'>fail</span>") + "</td>" +
+        "<td><code class='dim'>" + esc(String(a.archive_sha256).slice(0, 16)) + "\u2026</code></td></tr>";
+    }).join("");
+    return '<div class="blocked-note" style="border-color:#63D297">' +
+      "<h4><span class='pill pill-third'>proven</span> The mechanism runs</h4>" +
+      "<p>" + md(mp.claim) + "</p>" +
+      "<p class='fineprint'>Task: <code>" + esc(mp.task) + "</code> &middot; model <code>" +
+        esc(mp.model) + "</code></p>" +
+      "<table class='cells'><thead><tr><th>Arm</th><th class='num'>Rollout lines</th>" +
+        "<th class='num'>Tool calls</th><th class='num'>Verifier</th><th>Archive sha256</th></tr></thead>" +
+        "<tbody>" + rows + "</tbody></table>" +
+      "<p class='fineprint'>Each archive contains: " + esc(mp.archive_contents) +
+        ". Both sha256 values were recomputed from the files on disk and match the values recorded in the database.</p>" +
+      "<h4 style='margin-top:18px'>What this does not show</h4>" +
+      (mp.what_it_does_not_show || []).map(function (c) {
+        return '<p class="blocked-caveat">' + md(c) + "</p>";
+      }).join("") + "</div>";
+  }
+
   function cellKey(b, m, a) { return b + "|" + m + "|" + a; }
 
   function renderResults(d) {
@@ -321,6 +349,7 @@
         ? '<p class="ph-count" style="margin-top:10px"><span class="pill pill-risk">blocked</span> <b>' +
           blockedCells + "</b> of those cells are blocked, not merely unrun</p>"
         : "") +
+      (d.mechanism_proof ? renderMechanismProof(d.mechanism_proof) : "") +
       blockedModels.map(function (m) {
         return '<div class="blocked-note"><h4><span class="pill pill-risk">blocked</span> ' +
           esc(m.label) + " <span class='dim'>" + esc(m.chutes_id) + "</span></h4><p>" +
