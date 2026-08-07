@@ -299,6 +299,10 @@
         "<tbody>" + rows + "</tbody></table>" +
       "<p class='fineprint'>Each archive contains: " + esc(mp.archive_contents) +
         ". Both sha256 values were recomputed from the files on disk and match the values recorded in the database.</p>" +
+      (mp.replication ? "<h4 style='margin-top:18px'>What repetition did to it</h4>" +
+        "<p>" + md(mp.replication.invariant_holds) + "</p>" +
+        '<p class="blocked-caveat">' + md(mp.replication.capability_collapsed) + "</p>" +
+        '<p class="blocked-caveat">' + md(mp.replication.turn_counts) + "</p>" : "") +
       "<h4 style='margin-top:18px'>What this does not show</h4>" +
       (mp.what_it_does_not_show || []).map(function (c) {
         return '<p class="blocked-caveat">' + md(c) + "</p>";

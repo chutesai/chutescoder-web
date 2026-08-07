@@ -3,7 +3,7 @@
   "schema_version": 1,
   "status": "partial",
   "generated": "2026-08-07",
-  "headline": "Two claims now, and they are different sizes. PROVEN, from artefacts anyone can check: the RLM mechanism runs. On the same task, same model, same binary with one flag, the retained rollouts show 82 `python` calls and zero shell calls on one side, and 114 shell calls and zero `python` calls on the other — both archives' sha256 recomputed and matching the database. NOT PROVEN: that it performs better. On DeepSWE (n = 2) chutescoder scores 1 of 2 and vanilla Codex scores 1 of 2, the same two tasks pass for pass; upstream Prime Agent scores 0 of 2. On the one task where the arms separate, 4/5 against 1/5 gives p = 0.206. So: we match Codex, we beat the reference implementation of the idea we ported, and we can prove the idea is actually running. Two earlier retractions and the reference-solution leak (faults 16-18) still stand below.",
+  "headline": "PROVEN, from four retained artefacts anyone can re-count: the RLM mechanism runs. RLM-on issues `python` calls and never a shell call (82, 123); RLM-off issues shell calls and never `python` (114, 117). Four for four. NOT PROVEN, and now actively disconfirmed on the one task we probed hardest: that it performs better. That comparison started at 2/2 vs 0/2 and weakened at every repetition — 3/4 vs 1/4, then 4/5 vs 1/5, then 4/5 vs 2/6, then 4/6 vs 2/6 at p = 0.567. It is a coin flip. On DeepSWE (n = 2) chutescoder scores 1 of 2 and vanilla Codex scores 1 of 2, the same two tasks pass for pass; upstream Prime Agent scores 0 of 2. So: we match Codex, we beat the reference implementation of the idea we ported, we can prove the idea is running, and we cannot yet show it helps. Two earlier retractions and the reference-solution leak (faults 16-18) still stand below.",
   "harness_commit": null,
   "plan_url": "https://github.com/chutesai/chutescode",
   "arms": [
@@ -190,7 +190,8 @@
           "exec_command": 0
         },
         "score": 1,
-        "archive_sha256": "d3ad313cfcf27a04b4d237139e379492f34415081f62999a705ffbc2f9e92296"
+        "archive_sha256": "d3ad313cfcf27a04b4d237139e379492f34415081f62999a705ffbc2f9e92296",
+        "note": "One of four retained runs on this task. See `replication` — the score difference did not survive repetition; the tool-call invariant did."
       },
       {
         "arm": "C0",
@@ -202,7 +203,8 @@
           "exec_command": 114
         },
         "score": 0,
-        "archive_sha256": "3b47930095585e9681ac2db7af9f85a54222ccea3f72c0576f93335f37dde7c4"
+        "archive_sha256": "3b47930095585e9681ac2db7af9f85a54222ccea3f72c0576f93335f37dde7c4",
+        "note": "One of four retained runs on this task. See `replication` — the score difference did not survive repetition; the tool-call invariant did."
       }
     ],
     "archive_contents": "MANIFEST.json, full rollout JSONL, effective config, model catalog, agent combined stdout/stderr, exit code, launch script (11 entries per archive)",
@@ -210,6 +212,12 @@
       "It does not show the mechanism makes the agent better. Across every scored attempt at this one task the arms stand at 4/5 (RLM on) against 1/5 (RLM off) — Fisher's exact p = 0.206 two-tailed, which is what a real effect and a coin-flip both look like at n = 5.",
       "This particular pair ran while two of my own diagnostic docker builds were pinning cores on the same host (load 5.05). Rollout CONTENT is unaffected by CPU contention, so the mechanism evidence stands; the scores and latencies from this pair are marked contaminated and are being re-run.",
       "The fewer-turns observation (323 vs 479) is the shape the design predicts, but it is one pair. Within-cell spread on this harness has been measured up to 4x."
-    ]
+    ],
+    "replication": {
+      "$comment": "Four retained pairs on the same task. Added after the initial pair, because repetition changed the conclusion.",
+      "invariant_holds": "RLM-on issues `python` and never a shell call; RLM-off issues shell calls and never `python`. 82 and 123 vs 114 and 117 — four for four, no exceptions. The mechanism claim rests on four artefacts.",
+      "capability_collapsed": "The score separation weakened at every single repetition: 2/2 vs 0/2 -> 3/4 vs 1/4 -> 4/5 vs 1/5 (p=0.206) -> 4/5 vs 2/6 (p=0.242) -> 4/6 vs 2/6 (p=0.567). On this task there is no capability difference we can demonstrate.",
+      "turn_counts": "chutescoder 323 (pass) and 485 (fail); baseline 479 (fail) and 601 (pass). Means 404 vs 540 — about a 25% turn reduction, not the 54% the single pass-to-pass pair suggested. Spread within the RLM-on arm alone is 162 lines. Recorded as a direction to test, not a finding."
+    }
   }
 }
