@@ -1,9 +1,9 @@
 {
   "$comment": "THE MEASURED NUMBERS. Nothing in this file is estimated. A cell with no entry in `cells` renders as 'pending' — that is the correct state until a real run lands. See web/README.md for how to fill it in.",
   "schema_version": 1,
-  "status": "pending",
-  "generated": "2026-08-06",
-  "headline": "No standard benchmark has been run. The controlled A/B that used to sit above this table was retracted twice on 2026-08-06 — the winning version and the losing version both. A third retraction followed the same day: the first paired run of the two real binaries (Terminal-Bench Hard, n = 3) was withdrawn because the reference solution shipped inside the task archive into the agent's own working directory, and the scoring path would have run it as the agent's work. See section 04, faults 16–18.",
+  "status": "partial",
+  "generated": "2026-08-07",
+  "headline": "First head-to-head that survived an audit: on DeepSWE (n = 2, DeepSeek V4 Flash) chutescoder scores 1 of 2 and vanilla Codex scores 1 of 2 — the same two tasks, pass for pass, fail for fail. Upstream Prime Agent scores 0 of 2. So the honest claim is: we match Codex and we beat the reference implementation of the idea we ported. We do not beat Codex. A separate DeepSWE task where our RLM-on build had passed 2/2 against its own RLM-off baseline's 0/2 was weakened the same day, when the baseline passed on repetition — 3/4 versus 1/4, inside the measured noise. Two earlier retractions and the reference-solution leak (faults 16–18) still stand below.",
   "harness_commit": null,
   "plan_url": "https://github.com/chutesai/chutescode",
   "arms": [
@@ -24,6 +24,12 @@
       "label": "Arm C — chutescoder",
       "short": "chutescoder (RLM)",
       "desc": "our fork, RLM mode on. Same binary as arm B, one flag different."
+    },
+    {
+      "id": "D",
+      "label": "Arm D — Prime Agent (upstream)",
+      "short": "Prime Agent",
+      "desc": "Prime Intellect's own agent, upstream 0.7.0, unmodified. The reference implementation of the idea chutescoder ports into Codex."
     }
   ],
   "models": [
@@ -45,6 +51,13 @@
         "The probe window ends roughly 75 minutes before the runs it is being used to explain, so there is no availability evidence covering the period when work actually happened. Roughly a third of attempts succeeding is bad, not impossible.",
         "zai-org/GLM-5.1-TEE was available on every single probe and was never tried. It is a different model from the one the plan asks for, so it is not a substitute — but running it would have been the cheapest way to turn 'one model' into 'two models', and that was not done."
       ]
+    },
+    {
+      "id": "deepseek-v4-flash",
+      "label": "DeepSeek V4 Flash",
+      "chutes_id": "deepseek/deepseek-v4-flash-0731 (via OpenRouter)",
+      "context": 1048576,
+      "note": "Used instead of a Chutes-hosted model to spare Chutes capacity while Kimi K3 was loaded. Provider recorded per run; not a silent substitution."
     }
   ],
   "benchmarks": [
@@ -109,7 +122,56 @@
       ],
       "public_reference": "None published for either model.",
       "subset": false
+    },
+    {
+      "id": "deepswe",
+      "label": "DeepSWE",
+      "metric": "% resolved (binary verifier reward)",
+      "measures": "real repo bug-fixing, verified by the repo's own fail-to-pass tests",
+      "arms": [
+        "B",
+        "C",
+        "D"
+      ],
+      "public_reference": "No lab publishes DeepSWE numbers for these models. Dataset pinned at datacurve-ai/deep-swe@435ee89, 113 tasks.",
+      "subset": true,
+      "caveats": [
+        "Provenance is weaker than the recorded git SHA suggests. Every worker image in production is a stack of `docker commit` layers on a build from commit 863ddf1; the SHA label and BENCH_RUNNER_GIT_SHA env are written onto committed containers, not produced by a build at that commit. Verified separately: all 89 application .py files in the image hash-match the repo working tree exactly, so the code is the code the SHA names — but the image is not reproducible from it. Being repaired by locking the dependencies (an honest rebuild spent 45+ minutes in pip resolution, which is why commit-stacking became the habit).",
+        "One observation per cell. Within-cell spread on this harness has been measured up to 4x, so the token columns support no efficiency comparison and are shown as raw observations only.",
+        "Items 0 and 28 were chosen, not sampled. This is a paired head-to-head on two tasks, not an estimate of DeepSWE performance."
+      ]
     }
   ],
-  "cells": []
+  "cells": [
+    {
+      "benchmark": "deepswe",
+      "model": "deepseek-v4-flash",
+      "state": "measured",
+      "n": "2 / 113 (items 0, 28 — not a random subset)",
+      "arm": "C",
+      "score": 50.0,
+      "tokens": "14.2M in / 135k out",
+      "notes": "1 of 2. Passed item 0 (20/20 fail-to-pass), failed item 28 at 136/137. Identical per-item outcome to vanilla Codex."
+    },
+    {
+      "benchmark": "deepswe",
+      "model": "deepseek-v4-flash",
+      "state": "measured",
+      "n": "2 / 113 (items 0, 28 — not a random subset)",
+      "arm": "B",
+      "score": 50.0,
+      "tokens": "17.6M in / 130k out",
+      "notes": "1 of 2. Same two outcomes as chutescoder, task for task. On this sample the harnesses tie."
+    },
+    {
+      "benchmark": "deepswe",
+      "model": "deepseek-v4-flash",
+      "state": "measured",
+      "n": "2 / 113 (items 0, 28 — not a random subset)",
+      "arm": "D",
+      "score": 0.0,
+      "tokens": "13.6M in / 106k out",
+      "notes": "0 of 2. Scored strictly below both Codex-derived arms on both items (19/20 and 124/137). This is the only comparison in which chutescoder leads."
+    }
+  ]
 }
