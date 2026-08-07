@@ -3,7 +3,7 @@
   "schema_version": 1,
   "status": "partial",
   "generated": "2026-08-07",
-  "headline": "First head-to-head that survived an audit: on DeepSWE (n = 2, DeepSeek V4 Flash) chutescoder scores 1 of 2 and vanilla Codex scores 1 of 2 — the same two tasks, pass for pass, fail for fail. Upstream Prime Agent scores 0 of 2. So the honest claim is: we match Codex and we beat the reference implementation of the idea we ported. We do not beat Codex. A separate DeepSWE task where our RLM-on build had passed 2/2 against its own RLM-off baseline's 0/2 was weakened the same day, when the baseline passed on repetition — 3/4 versus 1/4, inside the measured noise. Two earlier retractions and the reference-solution leak (faults 16–18) still stand below.",
+  "headline": "Two claims now, and they are different sizes. PROVEN, from artefacts anyone can check: the RLM mechanism runs. On the same task, same model, same binary with one flag, the retained rollouts show 82 `python` calls and zero shell calls on one side, and 114 shell calls and zero `python` calls on the other — both archives' sha256 recomputed and matching the database. NOT PROVEN: that it performs better. On DeepSWE (n = 2) chutescoder scores 1 of 2 and vanilla Codex scores 1 of 2, the same two tasks pass for pass; upstream Prime Agent scores 0 of 2. On the one task where the arms separate, 4/5 against 1/5 gives p = 0.206. So: we match Codex, we beat the reference implementation of the idea we ported, and we can prove the idea is actually running. Two earlier retractions and the reference-solution leak (faults 16-18) still stand below.",
   "harness_commit": null,
   "plan_url": "https://github.com/chutesai/chutescode",
   "arms": [
@@ -173,5 +173,43 @@
       "tokens": "13.6M in / 106k out",
       "notes": "0 of 2. Scored strictly below both Codex-derived arms on both items (19/20 and 124/137). This is the only comparison in which chutescoder leads."
     }
-  ]
+  ],
+  "mechanism_proof": {
+    "$comment": "Read from the retained evidence archives, from outside the sandbox. Every number here is in an artefact on disk whose sha256 is recorded in the database and was recomputed to match.",
+    "task": "abs-module-cache-flags (DeepSWE, dataset pinned datacurve-ai/deep-swe@435ee89)",
+    "model": "deepseek/deepseek-v4-flash-0731",
+    "claim": "The two arms are the same binary with one flag. The retained rollouts show the flag doing exactly what the design says: the RLM build reaches the host through a single `python` tool and never issues a shell call; the baseline issues only shell calls and never a `python` one.",
+    "arms": [
+      {
+        "arm": "C",
+        "label": "chutescoder (RLM on)",
+        "config": "[rlm] enabled = true, python = \"python3\"",
+        "rollout_lines": 323,
+        "tool_calls": {
+          "python": 82,
+          "exec_command": 0
+        },
+        "score": 1,
+        "archive_sha256": "d3ad313cfcf27a04b4d237139e379492f34415081f62999a705ffbc2f9e92296"
+      },
+      {
+        "arm": "C0",
+        "label": "chutescoder-baseline (RLM off)",
+        "config": "[rlm] enabled = false",
+        "rollout_lines": 479,
+        "tool_calls": {
+          "python": 0,
+          "exec_command": 114
+        },
+        "score": 0,
+        "archive_sha256": "3b47930095585e9681ac2db7af9f85a54222ccea3f72c0576f93335f37dde7c4"
+      }
+    ],
+    "archive_contents": "MANIFEST.json, full rollout JSONL, effective config, model catalog, agent combined stdout/stderr, exit code, launch script (11 entries per archive)",
+    "what_it_does_not_show": [
+      "It does not show the mechanism makes the agent better. Across every scored attempt at this one task the arms stand at 4/5 (RLM on) against 1/5 (RLM off) — Fisher's exact p = 0.206 two-tailed, which is what a real effect and a coin-flip both look like at n = 5.",
+      "This particular pair ran while two of my own diagnostic docker builds were pinning cores on the same host (load 5.05). Rollout CONTENT is unaffected by CPU contention, so the mechanism evidence stands; the scores and latencies from this pair are marked contaminated and are being re-run.",
+      "The fewer-turns observation (323 vs 479) is the shape the design predicts, but it is one pair. Within-cell spread on this harness has been measured up to 4x."
+    ]
+  }
 }
